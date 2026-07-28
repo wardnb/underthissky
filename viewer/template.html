@@ -9,37 +9,53 @@
 <link rel="stylesheet" href="sky.css">
 </head>
 <body>
-<main>
-  <div class="skywrap">
-    <canvas id="sky" aria-label="Interactive star chart"></canvas>
-    <div id="tip" role="status"></div>
+<div class="page">
+  <header class="keep">
+    <div class="rule" aria-hidden="true"></div>
+    <h1>%%TITLE%%</h1>
+    <div class="occasion">%%SUBTITLE%%</div>
+    <div class="whereline">
+      <span>%%PLACE%%</span>
+      <span class="sep" aria-hidden="true">·</span>
+      <span id="when">%%DATE_LABEL%%</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="skywrap">
+      <canvas id="sky" aria-label="Interactive star chart"></canvas>
+      <div id="tip" role="status"></div>
+    </div>
   </div>
-  <div class="hint">drag to pan &middot; pinch or scroll to zoom &middot; tap a star or line
-    &middot; <button id="labelsbtn" class="linkbtn" type="button">show names</button></div>
-  <div id="strip" class="strip" aria-label="That night's sky"></div>
-  <div id="stripnote" class="stripnote" role="status"></div>
-  <div class="timerow">
+
+  <div class="bar">
+    <button id="labelsbtn" class="ctl" type="button" aria-pressed="false">Names</button>
     <input id="time" type="range" min="%%T_MIN%%" max="%%T_MAX%%" step="5" value="0"
            aria-label="Time of night">
-    <div class="t" id="tlabel"></div>
+    <div class="clock" id="tlabel"></div>
   </div>
-  <div class="caption">
-    <h1>%%TITLE%%</h1>
-    <div class="sub">%%SUBTITLE%%</div>
-    <div class="place">%%PLACE%%</div>
+  <p class="hint">Drag to pan &middot; pinch to zoom &middot; tap a star</p>
+
+  <section class="details">
+    <h2 class="eyebrow">That night&rsquo;s sky</h2>
+    <div id="strip" class="strip" aria-label="That night's sky"></div>
+    <div id="stripnote" class="stripnote" role="status"></div>
+  </section>
+
+  <section class="plate">
     <div class="coords">%%COORDS%%</div>
-    <div class="when" id="when">%%DATE_LABEL%%</div>
     <div class="events">%%EVENTS%%</div>
-  </div>
-</main>
-<footer>
-  <div class="share"><button id="copybtn" class="linkbtn" type="button">copy link to this sky</button></div>
-  <div style="margin-top:8px">every star drawn from real catalogs &middot; JPL ephemerides</div>
-  <div class="brand" style="margin-top:6px">made by
-    <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a>
-    &middot; <a href="https://underthissky.net" style="color:inherit">underthissky.net</a>
-  </div>
-</footer>
+  </section>
+
+  <footer>
+    <button id="copybtn" class="ctl ghost" type="button">Copy link to this sky</button>
+    <div class="prov">every star drawn from real catalogs &middot; JPL ephemerides</div>
+    <div class="brand">made by
+      <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a>
+      &middot; <a href="https://underthissky.net">underthissky.net</a>
+    </div>
+  </footer>
+</div>
 <script>window.SKY = %%DATA%%;</script>
 <script src="projection.js"></script>
 <script src="sky.js"></script>

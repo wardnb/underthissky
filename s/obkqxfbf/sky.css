@@ -1,106 +1,226 @@
-/* Under This Sky — order-page viewer. Same visual language as the landing
-   page and the printed charts: navy void, star white, gold accents. */
+/* Under This Sky — order page.
+   One column on a ground deeper than the sky itself, so the chart reads as a
+   lit porthole rather than a diagram: rim glow + horizon vignette do the work,
+   gold is spent only on the occasion line, the cardinals and the controls.
+   Same tokens and type stack as the landing page and the printed charts. */
 :root {
-  --void: #0B1026; --raised: #141C30; --line: #1E2740;
-  --dust: #7B86A4; --star: #EDF1FF; --gold: #FFC24B;
+  --abyss:  #06090F;   /* page ground — deeper than the sky disc */
+  --void:   #0B1026;   /* the sky itself (matches print + landing) */
+  --panel:  #101827;
+  --panel2: #0C1320;
+  --hair:   rgba(237, 241, 255, 0.10);
+  --hair2:  rgba(237, 241, 255, 0.06);
+  --dust:   #7B86A4;
+  --star:   #EDF1FF;
+  --gold:   #FFC24B;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --tap: 44px;
 }
+:root[data-theme="light"] {
+  --abyss: #F4F5F8; --void: #FBFAF7; --panel: #FFFFFF; --panel2: #F7F7FA;
+  --hair: rgba(32, 36, 46, 0.14); --hair2: rgba(32, 36, 46, 0.08);
+  --dust: #6B7285; --star: #191D26; --gold: #9A6B10;
+}
+
 * { box-sizing: border-box; margin: 0; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  min-height: 100dvh; background: var(--void); color: var(--star);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 16px; line-height: 1.45;
+  min-height: 100dvh; background: var(--abyss); color: var(--star);
+  font-family: var(--sans); font-size: 16px; line-height: 1.5;
   display: flex; flex-direction: column; align-items: center;
-  padding: 10px 12px calc(20px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(28px + env(safe-area-inset-bottom));
   overflow-x: hidden; touch-action: pan-y;
+  -webkit-font-smoothing: antialiased;
 }
-main { width: 100%; max-width: 640px; }
+.page { width: 100%; max-width: 620px; }
+
+/* ---------------- keepsake header ---------------- */
+.keep { text-align: center; padding: 30px 0 18px; }
+.keep .rule {
+  width: 46px; height: 1px; margin: 0 auto 20px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.85;
+}
+.keep h1 {
+  font-size: clamp(1.35rem, 5.6vw, 1.95rem); font-weight: 800;
+  letter-spacing: 0.055em; text-transform: uppercase; text-wrap: balance;
+  line-height: 1.18;
+}
+.keep .occasion {
+  margin-top: 11px; color: var(--gold); font-family: var(--mono);
+  font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase;
+}
+.keep .occasion:empty { display: none; }
+.keep .whereline {
+  margin-top: 16px; display: flex; justify-content: center; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  font-family: var(--mono); font-size: 0.78rem; color: var(--dust);
+  letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+}
+.keep .whereline .sep { opacity: 0.5; }
+
+/* ---------------- the sky stage ---------------- */
+.stage { position: relative; }
 .skywrap { position: relative; width: 100%; }
-#sky {
-  display: block; width: 100%; height: auto; touch-action: none;
-  border-radius: 6px; cursor: grab;
+/* diffuse halo bleeding out from behind the disc (canvas is transparent
+   outside the horizon circle, so this shows through) */
+.skywrap::before {
+  content: ""; position: absolute; inset: -6%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(96, 128, 224, 0.17) 0%, rgba(96, 128, 224, 0.10) 36%,
+    rgba(96, 128, 224, 0.03) 55%, rgba(6, 9, 15, 0) 68%);
 }
+:root[data-theme="light"] .skywrap::before {
+  background: radial-gradient(circle at 50% 50%,
+    rgba(32, 40, 70, 0.10) 0%, rgba(32, 40, 70, 0.04) 45%,
+    rgba(32, 40, 70, 0) 66%);
+}
+#sky {
+  position: relative; z-index: 1;
+  display: block; width: 100%; height: auto; touch-action: none; cursor: grab;
+}
+#sky:active { cursor: grabbing; }
 #tip {
-  position: absolute; display: none; pointer-events: none; z-index: 3;
-  background: color-mix(in srgb, var(--raised) 92%, transparent);
-  border: 1px solid var(--line); border-radius: 4px;
-  padding: 6px 10px; font-size: 0.8rem; color: var(--star);
-  font-family: ui-monospace, monospace; white-space: nowrap;
-  transform: translate(-50%, -130%);
+  position: absolute; z-index: 3; display: none; pointer-events: none;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--hair); border-radius: 5px;
+  padding: 7px 11px; font-size: 0.8rem; color: var(--star);
+  font-family: var(--mono); white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -132%);
 }
 #tip .sub { color: var(--dust); font-size: 0.7rem; }
+
+/* ---------------- control bar ---------------- */
+.bar {
+  margin-top: 16px; display: flex; align-items: center; gap: 12px;
+  padding: 4px 12px; border: 1px solid var(--hair); border-radius: 10px;
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+}
+.ctl {
+  flex: none; min-height: 34px; padding: 0 13px; cursor: pointer;
+  background: transparent; color: var(--dust);
+  border: 1px solid var(--hair); border-radius: 999px;
+  font-family: var(--mono); font-size: 0.7rem;
+  letter-spacing: 0.11em; text-transform: uppercase;
+}
+.ctl:hover { color: var(--star); border-color: var(--hair); }
+.ctl[aria-pressed="true"] {
+  color: var(--gold); border-color: color-mix(in srgb, var(--gold) 46%, transparent);
+  background: color-mix(in srgb, var(--gold) 9%, transparent);
+}
+.ctl:focus-visible, #sky:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.bar .clock {
+  flex: none; min-width: 84px; text-align: right;
+  font-family: var(--mono); font-size: 0.86rem; color: var(--gold);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+}
+.bar input[type="range"] {
+  flex: 1; min-width: 0; height: var(--tap); margin: 0;
+  -webkit-appearance: none; appearance: none; background: transparent;
+}
+.bar input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--star) 16%, transparent);
+}
+.bar input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; margin-top: -7px;
+  border: none; border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 16%, transparent),
+              0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.bar input[type="range"]::-moz-range-track {
+  height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--star) 16%, transparent);
+}
+.bar input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border: none; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 16%, transparent);
+}
 .hint {
-  margin-top: 6px; text-align: center; color: var(--dust);
-  font-size: 0.7rem; font-family: ui-monospace, monospace;
-  letter-spacing: 0.05em;
+  margin-top: 9px; text-align: center; color: var(--dust);
+  font-family: var(--mono); font-size: 0.67rem; letter-spacing: 0.06em;
+  opacity: 0.75;
 }
-.timerow {
-  display: flex; align-items: center; gap: 12px; margin-top: 12px;
-}
-.timerow input[type="range"] {
-  flex: 1; accent-color: var(--gold); min-height: 32px;
-}
-.timerow .t {
-  font-family: ui-monospace, monospace; font-size: 0.85rem;
-  color: var(--gold); min-width: 82px; text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.caption { text-align: center; margin-top: 22px; }
-.caption h1 {
-  font-size: clamp(1.5rem, 6vw, 2.2rem); font-weight: 800;
-  letter-spacing: 0.04em; text-transform: uppercase; text-wrap: balance;
-}
-.caption .sub {
-  margin-top: 6px; color: var(--gold); font-family: ui-monospace, monospace;
-  font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase;
-}
-.caption .place { margin-top: 12px; font-size: 1.0rem; }
-.caption .coords {
-  margin-top: 3px; color: var(--dust); font-size: 0.75rem;
-  font-family: ui-monospace, monospace;
-}
-.caption .when { margin-top: 8px; font-size: 0.95rem; }
-.caption .events {
-  margin-top: 8px; color: var(--dust); font-size: 0.78rem;
-  font-family: ui-monospace, monospace;
-}
-footer {
-  margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line);
-  width: 100%; max-width: 640px; text-align: center;
-  color: var(--dust); font-size: 0.72rem;
-  font-family: ui-monospace, monospace; letter-spacing: 0.06em;
-}
-footer a { color: var(--dust); }
-footer .brand a { color: var(--gold); text-decoration: none; }
-.linkbtn {
-  background: none; border: none; padding: 2px 4px; cursor: pointer;
-  color: var(--gold); font: inherit; font-family: ui-monospace, monospace;
-  letter-spacing: 0.05em; text-decoration: underline dotted;
-  min-height: 24px;
+
+/* ---------------- detail cards ---------------- */
+.details { margin-top: 26px; }
+.eyebrow {
+  text-align: center; color: var(--dust); font-family: var(--mono);
+  font-size: 0.66rem; font-weight: 400; letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 .strip {
-  display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 8px; margin-top: 12px; padding: 2px;
+  margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px;
 }
-.chip {
-  flex: none; display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 12px; min-height: 36px; border-radius: 999px;
-  background: var(--raised); border: 1px solid var(--line);
-  color: var(--star); font-size: 0.78rem; cursor: pointer;
-  font-family: ui-monospace, monospace; white-space: nowrap;
+.card {
+  flex: none; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 8px 14px 8px 11px; cursor: pointer;
+  border: 1px solid var(--hair); border-radius: 999px;
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  color: var(--star); font-size: 0.79rem; font-family: var(--sans);
+  letter-spacing: 0.005em; white-space: nowrap;
+  transition: border-color 140ms ease, transform 140ms ease;
 }
-.chip .ico { color: var(--gold); font-size: 0.9rem; }
-.chip:active { border-color: var(--gold); }
+.card:hover { border-color: color-mix(in srgb, var(--gold) 34%, transparent); }
+.card:active { transform: scale(0.975); }
+.card .ico {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; color: var(--gold);
+  font-size: 0.94rem; line-height: 1;
+}
+.card .ico svg { display: block; }
 .stripnote {
-  display: none; margin-top: 8px; padding: 8px 12px;
-  background: color-mix(in srgb, var(--raised) 88%, transparent);
-  border: 1px solid var(--line); border-left: 2px solid var(--gold);
-  border-radius: 4px; color: var(--dust); font-size: 0.78rem;
-  line-height: 1.5;
+  display: none; margin: 14px auto 0; max-width: 34rem;
+  padding: 12px 14px; border: 1px solid var(--hair); border-radius: 8px;
+  border-left: 2px solid var(--gold);
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  color: var(--dust); font-size: 0.82rem; line-height: 1.55;
 }
-.caption h1 { letter-spacing: 0.06em; }
-.caption .events { letter-spacing: 0.03em; }
-footer .share { margin-bottom: 4px; }
+.stripnote b { color: var(--star); font-weight: 600; }
+
+/* ---------------- provenance plate ---------------- */
+.plate {
+  margin-top: 26px; padding: 15px 16px; text-align: center;
+  border: 1px solid var(--hair2); border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  font-family: var(--mono);
+}
+.plate .coords {
+  color: var(--star); font-size: 0.78rem; letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.plate .events {
+  margin-top: 9px; color: var(--dust); font-size: 0.72rem;
+  letter-spacing: 0.03em; line-height: 1.7;
+}
+
+/* ---------------- footer ---------------- */
+footer {
+  margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--hair2);
+  text-align: center; color: var(--dust);
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.07em;
+}
+footer .ghost { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 34%, transparent); }
+footer .ghost:hover { background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--gold); }
+footer .prov { margin-top: 16px; opacity: 0.8; }
+footer .brand { margin-top: 7px; }
+footer a { color: var(--gold); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* ---------------- load reveal (motion-gated) ---------------- */
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes uts-rise { from { opacity: 0; transform: translateY(10px); } }
+  @keyframes uts-bloom { from { opacity: 0; transform: scale(0.965); } }
+  .stage   { animation: uts-bloom 820ms 40ms cubic-bezier(.2,.72,.2,1) both; }
+  .keep    { animation: uts-rise 620ms 300ms cubic-bezier(.2,.72,.2,1) both; }
+  .bar,
+  .hint    { animation: uts-rise 560ms 440ms cubic-bezier(.2,.72,.2,1) both; }
+  .details { animation: uts-rise 560ms 540ms cubic-bezier(.2,.72,.2,1) both; }
+  .plate,
+  footer   { animation: uts-rise 560ms 640ms cubic-bezier(.2,.72,.2,1) both; }
   #tip { transition: opacity 120ms ease; }
 }

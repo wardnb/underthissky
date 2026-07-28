@@ -224,6 +224,7 @@ def main():
     sign_con = SIGN_CON.get(z["sign"], z["sign"])
     if birth:
         z_label = f"{z['glyph']} {z['sign']}"
+        z_glyph, z_text = z["glyph"], z["sign"]
         if z["iau"] != sign_con:
             z_tip = (f"{z['sign']} by the calendar — the Sun itself stood in "
                      f"{z['iau']} that day.")
@@ -233,6 +234,7 @@ def main():
         z_target = sign_con
     else:
         z_label = f"☉ Sun in {z['iau']}"
+        z_glyph, z_text = "☉", f"Sun in {z['iau']}"
         z_tip = (f"The Sun stood in {z['iau']} that day — "
                  f"{z['sign']} on the tropical calendar.")
         z_target = z["iau"]
@@ -263,7 +265,8 @@ def main():
             "utc_offset_min": int(dt0.utcoffset().total_seconds() // 60),
             "events": events,
             "occasion": a.occasion or "custom",
-            "zodiac": {"label": z_label, "tip": z_tip, "target": z_target},
+            "zodiac": {"label": z_label, "glyph": z_glyph, "text": z_text,
+                       "tip": z_tip, "target": z_target},
             "chinese": chinese,
             "showers": showers,
         },

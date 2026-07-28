@@ -69,6 +69,9 @@ function sampleAt(off) {
 const MW = { canvas: document.createElement("canvas"), extent: 1.05,
              key: null };
 const LIGHT = (D.meta.theme === "minimal");
+document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
+const GROUND = LIGHT ? "#FBFAF7" : "#0B1026";   // the disc's own fill
+const INK = LIGHT ? "#20242E" : "#EDF1FF";
 
 function mwRng(seed) {
   let s0 = seed >>> 0 || 1;
@@ -128,7 +131,7 @@ function ensureMilky(lst) {
         const jy = (rnd() - 0.5) * baseW * 2.6 * (1 - 0.4 * edge);
         const x = A[0] + (B[0] - A[0]) * t + jx;
         const y = A[1] + (B[1] - A[1]) * t + jy;
-        const a = (0.05 + 0.17 * rnd()) * (0.4 + 0.6 * core);
+        const a = (0.07 + 0.23 * rnd()) * (0.4 + 0.6 * core);
         g.fillStyle = LIGHT ? `rgba(40,46,62,${(a * 0.8).toFixed(3)})`
                             : `rgba(237,241,255,${a.toFixed(3)})`;
         const r = (0.4 + rnd() * 0.7) * DPR * 0.6;
@@ -153,7 +156,7 @@ function draw() {
   const hr = R * view.s;
   ctx.save();
   ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.clip();
-  ctx.fillStyle = "#0B1026";
+  ctx.fillStyle = GROUND;
   ctx.fillRect(0, 0, W, H);
 
   // milky way: pre-rendered luminous band, composited (fast pan/zoom)
@@ -241,13 +244,13 @@ function draw() {
     const [px, py] = toPx(u, v);
     const r = Math.max(0.5, Math.pow(10, -0.14 * mag) * 3.2 * (R / 340)) *
               Math.sqrt(view.s);
-    if (!REDUCED && TWSET.has(i)) {     // gentle twinkle, brightest only
-      ctx.globalAlpha = 0.72 + 0.28 * Math.sin(twinkleT * 0.0021 + i * 2.7);
-      ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
-    }
+    // atmospheric extinction: stars genuinely dim toward the horizon
+    const ext = alt < 24 ? 0.52 + 0.48 * Math.max(0, alt) / 24 : 1;
+    const tw = (!REDUCED && TWSET.has(i))
+      ? 0.72 + 0.28 * Math.sin(twinkleT * 0.0021 + i * 2.7) : 1;
+    ctx.globalAlpha = ext * tw;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
     if (D.names[i]) hitStars.push([px, py, i]);
   }
 
@@ -262,7 +265,15 @@ function draw() {
     ctx.beginPath(); ctx.arc(px, py, 2.6 * Math.sqrt(view.s), 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(px, py, 5 * Math.sqrt(view.s), 0, 7);
     ctx.strokeStyle = "#FFC24B"; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillText(D.window.planet_names[k], px + 8, py + 4);
+    // label on whichever side keeps it inside the disc
+    const lbl = D.window.planet_names[k];
+    const lw = ctx.measureText(lbl).width, gap = 8;
+    const fits = (x) => Math.hypot(x - hx, py - hy) < hr - 3;
+    if (fits(px + gap + lw)) ctx.fillText(lbl, px + gap, py + 4);
+    else if (fits(px - gap - lw)) {
+      ctx.textAlign = "right"; ctx.fillText(lbl, px - gap, py + 4);
+      ctx.textAlign = "left";
+    }
   });
 
   // moon with true phase, lit limb toward the sun
@@ -288,28 +299,57 @@ function draw() {
       ctx.restore();
     }
   }
+  // horizon vignette inside the disc: the sky deepens toward the horizon,
+  // which is both true (extinction/airglow) and what lifts the disc off the page
+  {
+    const vg = ctx.createRadialGradient(hx, hy, hr * 0.68, hx, hy, hr);
+    vg.addColorStop(0, LIGHT ? "rgba(180,186,200,0)" : "rgba(4,6,12,0)");
+    vg.addColorStop(1, LIGHT ? "rgba(150,158,178,0.30)" : "rgba(3,5,10,0.62)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(hx - hr, hy - hr, hr * 2, hr * 2);
+  }
   ctx.restore();
 
-  // horizon ring + cardinals
-  ctx.strokeStyle = "#EDF1FF"; ctx.lineWidth = 1.5;
+  // rim: soft outer glow, then a crisp hairline horizon
+  ctx.save();
+  if (!LIGHT) {
+    ctx.strokeStyle = "rgba(122,158,255,0.30)";
+    ctx.shadowColor = "rgba(120,158,255,0.55)"; ctx.shadowBlur = 16;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(237,241,255,0.10)"; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(hx, hy, hr + 3.5, 0, 7); ctx.stroke();
+  }
+  ctx.strokeStyle = LIGHT ? "rgba(32,36,46,0.45)" : "rgba(237,241,255,0.72)";
+  ctx.lineWidth = 1;
   ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.stroke();
-  ctx.fillStyle = "#FFC24B";
-  ctx.font = `700 ${Math.max(11, R * 0.045)}px ui-monospace, monospace`;
+  ctx.restore();
+
+  // cardinals, set outside the ring — N in gold, the rest quiet
+  const cf = Math.max(10, R * 0.042);
+  ctx.font = `600 ${cf}px ui-monospace, monospace`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const off = hr + Math.max(10, R * 0.05);
-  ctx.fillText("N", hx, hy - off); ctx.fillText("S", hx, hy + off);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "1px";
+  const off = hr + Math.max(12, R * 0.062);
+  ctx.fillStyle = "#FFC24B";
+  ctx.fillText("N", hx, hy - off);
+  ctx.fillStyle = LIGHT ? "rgba(107,114,133,0.9)" : "rgba(123,134,164,0.92)";
+  ctx.fillText("S", hx, hy + off);
   ctx.fillText("E", hx - off, hy); ctx.fillText("W", hx + off, hy);
-  ctx.textAlign = "left";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
 /* ---------------- layout ---------------- */
 function size() {
   const w = canvas.parentElement.clientWidth;
-  const h = Math.min(Math.max(w, 300), window.innerHeight * 0.72);
+  // square stage: a circle wants a square, and it keeps the controls in view
+  const h = Math.max(280, Math.min(w, window.innerHeight * 0.58));
   canvas.style.height = h + "px";
   canvas.width = w * DPR; canvas.height = h * DPR;
   W = w; H = h;
-  R = Math.min(w, h) / 2 - Math.max(16, w * 0.05);
+  R = Math.min(w, h) / 2 - Math.max(19, w * 0.076);   // room for cardinals
   CX = w / 2; CY = h / 2;
   draw();
 }
@@ -468,20 +508,60 @@ function flyTo(u, v) {
 
 function chip(ico, label, onTap) {
   const b = document.createElement("button");
-  b.type = "button"; b.className = "chip";
+  b.type = "button"; b.className = "card";
   b.innerHTML = (ico ? `<span class="ico">${ico}</span>` : "") +
                 `<span>${label}</span>`;
   b.addEventListener("click", onTap);
   strip.appendChild(b);
 }
 
+/* the moon drawn at its actual phase — same geometry as the chart and the
+   printed poster, so the card tells the truth instead of picking an emoji */
 function moonIcon(frac, waxing) {
-  if (frac < 0.04) return "🌑";
-  if (frac > 0.96) return "🌕";
-  if (Math.abs(frac - 0.5) < 0.06) return waxing ? "🌓" : "🌗";
-  if (frac < 0.5) return waxing ? "🌒" : "🌘";
-  return waxing ? "🌔" : "🌖";
+  const r = 7, rx = (Math.abs(2 * frac - 1) * r).toFixed(2);
+  const sweep = frac < 0.5 ? 1 : 0;
+  const lit = `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} ` +
+              `A ${rx} ${r} 0 0 ${sweep} 0 ${-r} Z`;
+  return `<svg width="17" height="17" viewBox="-9 -9 18 18" aria-hidden="true">
+    <g${waxing ? "" : ' transform="scale(-1,1)"'}>
+      <circle r="${r}" fill="#232B47" stroke="rgba(237,241,255,.22)"
+              stroke-width=".7"/>
+      ${frac > 0.02 ? `<path d="${lit}" fill="#F5F1E8"/>` : ""}
+    </g></svg>`;
 }
+const PLANET_ICON = `<svg width="16" height="16" viewBox="-8 -8 16 16"
+  aria-hidden="true"><circle r="2.6" fill="#FFC24B"/>
+  <circle r="5.2" fill="none" stroke="#FFC24B" stroke-width=".9"
+          opacity=".55"/></svg>`;
+/* the Sun, unmistakably itself — the ☉ glyph reads too close to the planet
+   marker at card size */
+const SUN_ICON = (() => {
+  let rays = "";
+  for (let a = 0; a < 8; a++) {
+    const th = a * Math.PI / 4;
+    rays += `<line x1="${(Math.cos(th) * 4.6).toFixed(2)}"
+      y1="${(Math.sin(th) * 4.6).toFixed(2)}"
+      x2="${(Math.cos(th) * 7.6).toFixed(2)}"
+      y2="${(Math.sin(th) * 7.6).toFixed(2)}"/>`;
+  }
+  return `<svg width="17" height="17" viewBox="-9 -9 18 18" aria-hidden="true">
+    <g stroke="#FFC24B" stroke-width="1.1" stroke-linecap="round"
+       opacity=".85">${rays}</g>
+    <circle r="3.1" fill="#FFC24B"/></svg>`;
+})();
+const RADIANT_ICON = (() => {
+  let rays = "";
+  for (let a = 0; a < 6; a++) {
+    const th = a * Math.PI / 3 + 0.35;
+    rays += `<line x1="${(Math.cos(th) * 3.4).toFixed(2)}"
+      y1="${(Math.sin(th) * 3.4).toFixed(2)}"
+      x2="${(Math.cos(th) * 7.4).toFixed(2)}"
+      y2="${(Math.sin(th) * 7.4).toFixed(2)}"/>`;
+  }
+  return `<svg width="17" height="17" viewBox="-9 -9 18 18" aria-hidden="true">
+    <g stroke="#FFC24B" stroke-width="1.1" opacity=".8">${rays}</g>
+    <circle r="1.7" fill="#FFC24B"/></svg>`;
+})();
 
 (function buildStrip() {
   const s0 = sampleAt(0);
@@ -499,7 +579,7 @@ function moonIcon(frac, waxing) {
   D.window.planet_names.forEach((name, k) => {
     const [alt] = altaz(s0.planets[k][0], s0.planets[k][1], s0.lst);
     if (alt < 2) return;
-    chip("✶", name, () => {
+    chip(PLANET_ICON, name, () => {
       const s = sampleAt(offMin);
       const [alt2, az2] = altaz(s.planets[k][0], s.planets[k][1], s.lst);
       if (alt2 > 0) { const [u, v] = proj(alt2, az2); flyTo(u, v); }
@@ -508,7 +588,7 @@ function moonIcon(frac, waxing) {
   });
   // meteor showers
   (D.meta.showers || []).forEach((sh, k) => {
-    chip("☄", sh.name, () => {
+    chip(RADIANT_ICON, sh.name, () => {
       const s = sampleAt(offMin);
       const [alt, az] = altaz(sh.ra, sh.dec, s.lst);
       showNote(`<b>${sh.name}</b> — active that night, peaking ${sh.peak}. ` +
@@ -520,7 +600,8 @@ function moonIcon(frac, waxing) {
   // western zodiac
   if (D.meta.zodiac) {
     const z = D.meta.zodiac;
-    chip(null, z.label, () => {
+    const zico = z.glyph === "☉" ? SUN_ICON : (z.glyph || null);
+    chip(zico, z.text || z.label, () => {
       const ci = conIndex(z.target);
       const s = sampleAt(offMin);
       const c = ci >= 0 ? conCentroidUV(ci, s.lst) : null;
@@ -539,7 +620,7 @@ function moonIcon(frac, waxing) {
   if (D.meta.chinese) {
     const c = D.meta.chinese;
     const jk = D.window.planet_names.indexOf("Jupiter");
-    chip(null, `${c.label} · ${c.hanzi}`, () => {
+    chip(c.hanzi, c.label, () => {
       let extra = "";
       if (jk >= 0) {
         const s = sampleAt(offMin);
@@ -554,7 +635,7 @@ function moonIcon(frac, waxing) {
 
 labelsBtn.addEventListener("click", () => {
   showLabels = !showLabels;
-  labelsBtn.textContent = showLabels ? "hide names" : "show names";
+  labelsBtn.setAttribute("aria-pressed", showLabels ? "true" : "false");
   draw();
 });
 
@@ -565,8 +646,8 @@ copyBtn.addEventListener("click", async () => {
     ta.value = location.href; document.body.appendChild(ta);
     ta.select(); document.execCommand("copy"); ta.remove();
   }
-  copyBtn.textContent = "copied ✓";
-  setTimeout(() => copyBtn.textContent = "copy link to this sky", 1600);
+  copyBtn.textContent = "Copied ✓";
+  setTimeout(() => copyBtn.textContent = "Copy link to this sky", 1600);
 });
 
 tlabel.textContent = fmtTime(0);
