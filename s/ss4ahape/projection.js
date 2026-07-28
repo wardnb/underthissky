@@ -1,0 +1,82 @@
+/* Under This Sky — shared sky math.
+   One code path for every page: the order-page viewer and the landing
+   page both project through these functions. Angles: RA in hours, Dec in
+   degrees, LST in hours. Low-precision solar/lunar positions are
+   Meeus-style truncated series — background-grade (arcminutes), no
+   ephemeris files needed client-side. */
+"use strict";
+(function () {
+  const RAD = Math.PI / 180;
+
+  function altaz(raH, decDeg, lstH, sinLat, cosLat) {
+    const ha = (lstH - raH) * 15 * RAD;
+    const dec = decDeg * RAD;
+    const sinAlt = Math.sin(dec) * sinLat +
+                   Math.cos(dec) * cosLat * Math.cos(ha);
+    const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+    const y = -Math.sin(ha) * Math.cos(dec);
+    const x = Math.sin(dec) * cosLat - Math.cos(dec) * sinLat * Math.cos(ha);
+    return [alt / RAD, ((Math.atan2(y, x) / RAD) + 360) % 360];
+  }
+
+  function proj(alt, az) {           // zenith-centered equidistant, E left
+    const r = (90 - alt) / 90;
+    const a = az * RAD;
+    return [-r * Math.sin(a), r * Math.cos(a)];
+  }
+
+  function jd(ms) { return ms / 86400000 + 2440587.5; }
+
+  function gmstHours(ms) {           // IAU 1982-style linear GMST
+    const d = jd(ms) - 2451545.0;
+    return (((280.46061837 + 360.98564736629 * d) % 360) + 360) % 360 / 15;
+  }
+
+  function lstHours(ms, lonDeg) {
+    return ((gmstHours(ms) + lonDeg / 15) % 24 + 24) % 24;
+  }
+
+  function obliquity(T) { return (23.4392911 - 0.0130042 * T) * RAD; }
+
+  function eclToEq(lonDeg, latDeg, T) {
+    const e = obliquity(T), l = lonDeg * RAD, b = latDeg * RAD;
+    const ra = Math.atan2(Math.sin(l) * Math.cos(e) -
+                          Math.tan(b) * Math.sin(e), Math.cos(l));
+    const dec = Math.asin(Math.sin(b) * Math.cos(e) +
+                          Math.cos(b) * Math.sin(e) * Math.sin(l));
+    return [((ra / RAD + 360) % 360) / 15, dec / RAD];
+  }
+
+  function sunEq(ms) {               // Meeus ch.25, low precision
+    const T = (jd(ms) - 2451545.0) / 36525;
+    const L0 = 280.46646 + 36000.76983 * T;
+    const M = (357.52911 + 35999.05029 * T) * RAD;
+    const C = (1.914602 - 0.004817 * T) * Math.sin(M) +
+              0.019993 * Math.sin(2 * M) + 0.000289 * Math.sin(3 * M);
+    const lon = ((L0 + C) % 360 + 360) % 360;
+    const [ra, dec] = eclToEq(lon, 0, T);
+    return { ra, dec, lon };
+  }
+
+  function moonEq(ms) {              // Meeus ch.47, leading terms only
+    const T = (jd(ms) - 2451545.0) / 36525;
+    const Lp = 218.3164477 + 481267.88123421 * T;
+    const D = (297.8501921 + 445267.1114034 * T) * RAD;
+    const M = (357.5291092 + 35999.0502909 * T) * RAD;
+    const Mp = (134.9633964 + 477198.8675055 * T) * RAD;
+    const F = (93.2720950 + 483202.0175233 * T) * RAD;
+    const lon = Lp + 6.288774 * Math.sin(Mp) +
+      1.274027 * Math.sin(2 * D - Mp) + 0.658314 * Math.sin(2 * D) +
+      0.213618 * Math.sin(2 * Mp) - 0.185116 * Math.sin(M) -
+      0.114332 * Math.sin(2 * F);
+    const lat = 5.128122 * Math.sin(F) + 0.280602 * Math.sin(Mp + F) +
+      0.277693 * Math.sin(Mp - F);
+    const [ra, dec] = eclToEq(((lon % 360) + 360) % 360, lat, T);
+    const elong = ((lon - sunEq(ms).lon) % 360 + 360) % 360;
+    return { ra, dec,
+             frac: (1 - Math.cos(elong * RAD)) / 2,
+             waxing: elong < 180 };
+  }
+
+  window.UTS = { altaz, proj, jd, gmstHours, lstHours, sunEq, moonEq };
+})();

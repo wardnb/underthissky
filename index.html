@@ -20,8 +20,20 @@
     padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
     overflow-x: hidden;
   }
-  #sky { position: fixed; inset: 0; z-index: 0; }
-  main { position: relative; z-index: 1; max-width: 560px; }
+  #sky { position: fixed; inset: 0; z-index: 0; width: 100vw; height: 100dvh; }
+  main {
+    position: relative; z-index: 1; max-width: 560px;
+    padding: 48px 28px; border-radius: 16px;
+    background: radial-gradient(closest-side,
+      rgba(11, 16, 38, 0.86), rgba(11, 16, 38, 0.55) 70%,
+      rgba(11, 16, 38, 0) 100%);
+  }
+  .skycap {
+    position: fixed; left: 14px;
+    bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 1;
+    color: var(--dust); font-family: ui-monospace, monospace;
+    font-size: 0.68rem; letter-spacing: 0.08em; opacity: 0.85;
+  }
   .mark { width: 96px; height: 96px; margin: 0 auto 18px; opacity: 0.95; }
   h1 {
     font-size: clamp(1.6rem, 6vw, 2.4rem); font-weight: 800;
@@ -77,34 +89,9 @@
   <a class="cta" href="https://nightshiftastroco.etsy.com" rel="noopener">Get your sky &rarr;</a>
 </main>
 <footer>a <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a> thing</footer>
-<script>
-(function () {
-  const c = document.getElementById("sky"), x = c.getContext("2d");
-  let stars = [];
-  function size() {
-    c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio;
-    stars = [];
-    let seed = 20260727;
-    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-    for (let i = 0; i < 220; i++)
-      stars.push({ x: rnd() * c.width, y: rnd() * c.height,
-                   r: (0.4 + rnd() * 1.3) * devicePixelRatio,
-                   p: rnd() * Math.PI * 2, s: 0.2 + rnd() * 0.6 });
-  }
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function draw(t) {
-    x.clearRect(0, 0, c.width, c.height);
-    for (const s of stars) {
-      const a = reduced ? 0.7 : 0.45 + 0.4 * Math.sin(s.p + t * 0.001 * s.s);
-      x.globalAlpha = Math.max(0.12, a);
-      x.fillStyle = "#EDF1FF";
-      x.beginPath(); x.arc(s.x, s.y, s.r, 0, 7); x.fill();
-    }
-    if (!reduced) requestAnimationFrame(draw);
-  }
-  addEventListener("resize", size);
-  size(); requestAnimationFrame(draw);
-})();
-</script>
+<div class="skycap">the sky over Port Huron, Michigan — right now</div>
+<script src="viewer/projection.js"></script>
+<script src="home_sky.js"></script>
+<script src="landing.js"></script>
 </body>
 </html>

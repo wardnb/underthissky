@@ -294,7 +294,7 @@ def main():
     out = os.path.join(HERE, "s", code)
     os.makedirs(out, exist_ok=True)
     open(os.path.join(out, "index.html"), "w").write(html)
-    for f in ("sky.js", "sky.css"):
+    for f in ("sky.js", "sky.css", "projection.js"):
         shutil.copy(os.path.join(HERE, "viewer", f), os.path.join(out, f))
     size_kb = os.path.getsize(os.path.join(out, "index.html")) / 1024
     print(f"https://underthissky.net/s/{code}/  ({size_kb:.0f} KB, "

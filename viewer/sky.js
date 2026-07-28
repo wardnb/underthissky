@@ -29,21 +29,11 @@ const TWSET = new Set(TWINKLE);
 const LAT = D.meta.lat * Math.PI / 180;
 const SINLAT = Math.sin(LAT), COSLAT = Math.cos(LAT);
 
-/* ---------------- astronomy ---------------- */
+/* ---------------- astronomy (shared code path: projection.js) ----------- */
 function altaz(raH, decDeg, lstH) {
-  const ha = (lstH - raH) * 15 * Math.PI / 180;
-  const dec = decDeg * Math.PI / 180;
-  const sinAlt = Math.sin(dec) * SINLAT + Math.cos(dec) * COSLAT * Math.cos(ha);
-  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
-  const y = -Math.sin(ha) * Math.cos(dec);
-  const x = Math.sin(dec) * COSLAT - Math.cos(dec) * SINLAT * Math.cos(ha);
-  return [alt * 180 / Math.PI, ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360];
+  return UTS.altaz(raH, decDeg, lstH, SINLAT, COSLAT);
 }
-function proj(alt, az) {               // -> unit-circle coords (r=1 horizon)
-  const r = (90 - alt) / 90;
-  const a = az * Math.PI / 180;
-  return [-r * Math.sin(a), r * Math.cos(a)];
-}
+const proj = UTS.proj;
 function toPx(u, v) {                  // unit coords -> canvas px (view applied)
   return [CX + view.x + (u * R) * view.s,
           CY + view.y - (v * R) * view.s];
