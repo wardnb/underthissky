@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>%%TITLE%% — Under This Sky</title>
+<meta name="description" content="The real night sky over %%PLACE%% — %%DATE_LABEL%%. Astronomically accurate, interactive.">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="sky.css">
+</head>
+<body>
+<main>
+  <div class="skywrap">
+    <canvas id="sky" aria-label="Interactive star chart"></canvas>
+    <div id="tip" role="status"></div>
+  </div>
+  <div class="hint">drag to pan &middot; pinch or scroll to zoom &middot; tap a star or line</div>
+  <div class="timerow">
+    <input id="time" type="range" min="%%T_MIN%%" max="%%T_MAX%%" step="5" value="0"
+           aria-label="Time of night">
+    <div class="t" id="tlabel"></div>
+  </div>
+  <div class="caption">
+    <h1>%%TITLE%%</h1>
+    <div class="sub">%%SUBTITLE%%</div>
+    <div class="place">%%PLACE%%</div>
+    <div class="coords">%%COORDS%%</div>
+    <div class="when" id="when">%%DATE_LABEL%%</div>
+    <div class="events">%%EVENTS%%</div>
+  </div>
+</main>
+<footer>
+  <div>every star drawn from real catalogs &middot; JPL ephemerides</div>
+  <div class="brand" style="margin-top:6px">made by
+    <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a>
+    &middot; <a href="https://underthissky.net" style="color:inherit">underthissky.net</a>
+  </div>
+</footer>
+<script>window.SKY = %%DATA%%;</script>
+<script src="sky.js"></script>
+</body>
+</html>
