@@ -87,7 +87,7 @@
      Calibrated for Bortle 2-3: the band should be the last thing you
      notice — a faint luminous grain barely above the background. */
   function drawMW(ctx, levels, lstH, sinLat, cosLat, toPx, opts) {
-    const alphas = opts.alphas || [0.016, 0.018, 0.022, 0.026];
+    const alphas = opts.alphas || [0.026, 0.030, 0.036, 0.044];
     const colors = opts.colors ||
       [[214, 224, 250], [220, 228, 250], [228, 232, 248], [238, 236, 226]];
     for (let li = 0; li < levels.length; li++) {

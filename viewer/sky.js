@@ -128,7 +128,7 @@ function ensureMilky(lst) {
         const jy = (rnd() - 0.5) * baseW * 2.6 * (1 - 0.4 * edge);
         const x = A[0] + (B[0] - A[0]) * t + jx;
         const y = A[1] + (B[1] - A[1]) * t + jy;
-        const a = (0.05 + 0.17 * rnd()) * (0.4 + 0.6 * core);
+        const a = (0.07 + 0.23 * rnd()) * (0.4 + 0.6 * core);
         g.fillStyle = LIGHT ? `rgba(40,46,62,${(a * 0.8).toFixed(3)})`
                             : `rgba(237,241,255,${a.toFixed(3)})`;
         const r = (0.4 + rnd() * 0.7) * DPR * 0.6;
