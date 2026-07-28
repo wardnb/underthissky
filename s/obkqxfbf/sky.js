@@ -17,6 +17,14 @@ const DPR = Math.min(window.devicePixelRatio || 1, 3);
 let W = 0, H = 0, R = 0, CX = 0, CY = 0;
 let view = { s: 1, x: 0, y: 0 };        // zoom scale + pan (canvas px)
 let offMin = 0;                          // slider offset, minutes from t0
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let showLabels = false;
+let hlCon = -1, hlUntil = 0;            // gold-highlighted constellation
+let twinkleT = 0;
+const TWINKLE = [];                     // indices of the brightest stars
+for (let i = 0; i < D.stars.length && TWINKLE.length < 14; i++)
+  if (D.stars[i][2] < 1.4) TWINKLE.push(i);
+const TWSET = new Set(TWINKLE);
 
 const LAT = D.meta.lat * Math.PI / 180;
 const SINLAT = Math.sin(LAT), COSLAT = Math.cos(LAT);
@@ -64,9 +72,98 @@ function sampleAt(off) {
   };
 }
 
+/* ---------------- milky way pre-render ----------------
+   Drawn once per (lst, zoom-bucket) into an offscreen canvas in unit-sky
+   space, then composited each frame — layered glow + seeded star-grain,
+   density-weighted toward the galactic core. */
+const MW = { canvas: document.createElement("canvas"), extent: 1.05,
+             key: null };
+const LIGHT = (D.meta.theme === "minimal");
+
+function mwRng(seed) {
+  let s0 = seed >>> 0 || 1;
+  return () => ((s0 = (s0 * 1103515245 + 12345) >>> 0) / 4294967296);
+}
+
+function ensureMilky(lst) {
+  const zb = Math.min(3, Math.max(1, Math.round(view.s)));   // zoom bucket
+  const key = lst.toFixed(2) + ":" + zb + ":" + R;
+  if (MW.key === key) return;
+  MW.key = key;
+  const Q = Math.min(2048, Math.ceil(R * DPR * MW.extent * 2 * Math.min(zb, 2)));
+  MW.canvas.width = MW.canvas.height = Q;
+  const g = MW.canvas.getContext("2d");
+  g.clearRect(0, 0, Q, Q);
+  const toQ = (u, v) => [(u + MW.extent) / (2 * MW.extent) * Q,
+                         (MW.extent - v) / (2 * MW.extent) * Q];
+  // project each band path; remember per-point galactic longitude (idx*3)
+  const paths = D.milky.map(path => {
+    const pts = [];
+    for (let i = 0; i < path.length; i++) {
+      const [alt, az] = altaz(path[i][0], path[i][1], lst);
+      if (alt < -6) { pts.push(null); continue; }
+      const [u, v] = proj(alt, az);
+      pts.push([...toQ(u, v), (Math.cos(i * 3 * Math.PI / 180) + 1) / 2]);
+    }
+    return pts;
+  });
+  const px1 = Q / (2 * MW.extent);          // px per unit coord
+  const baseW = px1 * 0.055;
+  g.lineJoin = g.lineCap = "round";
+  // 1+3: layered feathered glow, alpha scaled by core proximity
+  const passes = LIGHT
+    ? [[3.4, 0.020], [2.2, 0.030], [1.3, 0.045]]
+    : [[3.6, 0.028], [2.4, 0.045], [1.5, 0.065], [0.85, 0.085]];
+  for (const [wMul, aBase] of passes) {
+    for (let p = 0; p < paths.length; p++) {
+      const edge = Math.abs(p - (paths.length - 1) / 2) / ((paths.length - 1) / 2);
+      const pts = paths[p];
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const A = pts[i], B = pts[i + 1];
+        if (!A || !B) continue;
+        const core = (A[2] + B[2]) / 2;
+        const a = aBase * (0.35 + 0.65 * core) * (1 - 0.45 * edge);
+        // 4: warm core, cool edges (ink-wash gray on the light theme)
+        const col = LIGHT ? "40,46,62"
+          : `${Math.round(225 + 30 * core)},${Math.round(232 + 6 * core)},` +
+            `${Math.round(255 - 22 * core)}`;
+        g.strokeStyle = `rgba(${col},${a.toFixed(3)})`;
+        g.lineWidth = baseW * wMul * (1 - 0.3 * edge);
+        g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
+        g.stroke();
+      }
+    }
+  }
+  // 2: fine grain — faint unresolved-star speckles seeded deterministically
+  const rnd = mwRng(987654321 ^ Math.round(lst * 100));
+  for (let p = 0; p < paths.length; p++) {
+    const edge = Math.abs(p - (paths.length - 1) / 2) / ((paths.length - 1) / 2);
+    const pts = paths[p];
+    for (let i = 0; i + 1 < pts.length; i += 1) {
+      const A = pts[i], B = pts[i + 1];
+      if (!A || !B) continue;
+      const core = A[2];
+      const n = Math.round((1 - 0.6 * edge) * (1 + 4 * core) * 1.4);
+      for (let k = 0; k < n; k++) {
+        const t = rnd();
+        const jx = (rnd() - 0.5) * baseW * 2.6 * (1 - 0.4 * edge);
+        const jy = (rnd() - 0.5) * baseW * 2.6 * (1 - 0.4 * edge);
+        const x = A[0] + (B[0] - A[0]) * t + jx;
+        const y = A[1] + (B[1] - A[1]) * t + jy;
+        const a = (0.10 + 0.34 * rnd()) * (0.4 + 0.6 * core);
+        g.fillStyle = LIGHT ? `rgba(40,46,62,${(a * 0.8).toFixed(3)})`
+                            : `rgba(237,241,255,${a.toFixed(3)})`;
+        const r = (0.4 + rnd() * 0.7) * DPR * 0.6;
+        g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      }
+    }
+  }
+}
+
 /* ---------------- drawing ---------------- */
 let hitStars = [];                     // [x, y, starIndex] for named stars
 let hitSegs = [];                      // [x1,y1,x2,y2, conIndex]
+let hitShowers = [];                   // [x, y, showerIndex]
 
 function draw() {
   const s = sampleAt(offMin);
@@ -81,25 +178,17 @@ function draw() {
   ctx.fillStyle = "#0B1026";
   ctx.fillRect(0, 0, W, H);
 
-  // milky way band
-  ctx.strokeStyle = "rgba(37,51,94,0.55)";
-  ctx.lineWidth = 14 * view.s;
-  ctx.lineJoin = "round"; ctx.lineCap = "round";
-  for (const path of D.milky) {
-    ctx.beginPath();
-    let pen = false;
-    for (const [ra, dec] of path) {
-      const [alt, az] = altaz(ra, dec, s.lst);
-      if (alt < -4) { pen = false; continue; }
-      const [u, v] = proj(alt, az);
-      const [px, py] = toPx(u, v);
-      if (!pen) { ctx.moveTo(px, py); pen = true; } else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
+  // milky way: pre-rendered luminous band, composited (fast pan/zoom)
+  ensureMilky(s.lst);
+  {
+    const ext = MW.extent * R * view.s;
+    ctx.drawImage(MW.canvas, hx - ext, hy - ext, ext * 2, ext * 2);
   }
 
-  // constellation lines
+  // constellation lines (highlighted one drawn separately in gold)
   hitSegs = [];
+  const hlOn = hlCon >= 0 && performance.now() < hlUntil;
+  const hlSegs = [], conAcc = {};
   ctx.strokeStyle = "#3A4A7A";
   ctx.lineWidth = Math.max(1, 1.1 * view.s);
   ctx.beginPath();
@@ -110,10 +199,57 @@ function draw() {
     if (altA < -2 && altB < -2) continue;
     const [ux, uy] = proj(altA, azA), [vx2, vy2] = proj(altB, azB);
     const [x1, y1] = toPx(ux, uy), [x2, y2] = toPx(vx2, vy2);
-    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    if (hlOn && ci === hlCon) hlSegs.push([x1, y1, x2, y2]);
+    else { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
     hitSegs.push([x1, y1, x2, y2, ci]);
+    if (showLabels) {
+      (conAcc[ci] = conAcc[ci] || [0, 0, 0]);
+      conAcc[ci][0] += x1 + x2; conAcc[ci][1] += y1 + y2; conAcc[ci][2] += 2;
+    }
   }
   ctx.stroke();
+  if (hlSegs.length) {
+    ctx.strokeStyle = "#FFC24B";
+    ctx.lineWidth = Math.max(1.6, 1.8 * view.s);
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of hlSegs) {
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+  }
+  if (showLabels) {
+    ctx.fillStyle = "rgba(123,134,164,0.85)";
+    ctx.font = `${Math.max(9, 10 * Math.sqrt(view.s))}px ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    for (const ci in conAcc) {
+      const [sx, sy, n] = conAcc[ci];
+      ctx.fillText(D.cons[ci].toUpperCase(), sx / n, sy / n);
+    }
+    ctx.textAlign = "left";
+  }
+
+  // meteor-shower radiants: marker + short outward streaks
+  hitShowers = [];
+  for (let k = 0; k < (D.meta.showers || []).length; k++) {
+    const sh = D.meta.showers[k];
+    const [alt, az] = altaz(sh.ra, sh.dec, s.lst);
+    if (alt < -2) continue;
+    const [u, v] = proj(alt, az);
+    const [px, py] = toPx(u, v);
+    const sc = Math.sqrt(view.s);
+    ctx.strokeStyle = "rgba(255,194,75,0.5)";
+    ctx.lineWidth = 1.2;
+    for (let a = 0; a < 6; a++) {
+      const th = a * Math.PI / 3 + 0.35;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(th) * 7 * sc, py + Math.sin(th) * 7 * sc);
+      ctx.lineTo(px + Math.cos(th) * 15 * sc, py + Math.sin(th) * 15 * sc);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,194,75,0.9)";
+    ctx.beginPath(); ctx.arc(px, py, 1.8 * sc, 0, 7); ctx.fill();
+    hitShowers.push([px, py, k]);
+  }
 
   // stars
   hitStars = [];
@@ -127,7 +263,13 @@ function draw() {
     const [px, py] = toPx(u, v);
     const r = Math.max(0.5, Math.pow(10, -0.14 * mag) * 3.2 * (R / 340)) *
               Math.sqrt(view.s);
-    ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+    if (!REDUCED && TWSET.has(i)) {     // gentle twinkle, brightest only
+      ctx.globalAlpha = 0.72 + 0.28 * Math.sin(twinkleT * 0.0021 + i * 2.7);
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+    }
     if (D.names[i]) hitStars.push([px, py, i]);
   }
 
@@ -246,6 +388,10 @@ function clampView() {
 
 function tap(px, py) {
   let best = null, bd = 16 * 16;
+  for (const [x, y, k] of hitShowers) {
+    const d = (x - px) ** 2 + (y - py) ** 2;
+    if (d < 15 * 15 && (!best || d < bd)) { bd = d; best = { kind: "shower", k, x, y }; }
+  }
   for (const [x, y, i] of hitStars) {
     const d = (x - px) ** 2 + (y - py) ** 2;
     if (d < bd) { bd = d; best = { kind: "star", i, x, y }; }
@@ -258,7 +404,10 @@ function tap(px, py) {
     }
   }
   if (!best) { tip.style.display = "none"; return; }
-  if (best.kind === "star") {
+  if (best.kind === "shower") {
+    const sh = D.meta.showers[best.k];
+    tip.innerHTML = `<b>${sh.name}</b> <span class="sub">meteor radiant · peak ${sh.peak}</span>`;
+  } else if (best.kind === "star") {
     const s = D.stars[best.i];
     tip.innerHTML = `<b>${D.names[best.i]}</b> <span class="sub">mag ${s[2].toFixed(1)}</span>`;
   } else {
@@ -294,5 +443,162 @@ slider.addEventListener("input", () => {
   draw();
 });
 
+/* ---------------- story strip, fly-to, toggles ---------------- */
+const strip = document.getElementById("strip");
+const stripNote = document.getElementById("stripnote");
+const labelsBtn = document.getElementById("labelsbtn");
+const copyBtn = document.getElementById("copybtn");
+
+function showNote(html) {
+  stripNote.innerHTML = html;
+  stripNote.style.display = "block";
+  clearTimeout(stripNote._t);
+  stripNote._t = setTimeout(() => stripNote.style.display = "none", 7000);
+}
+
+function conIndex(name) { return D.cons.indexOf(name); }
+function conCentroidUV(ci, lst) {
+  let su = 0, sv = 0, n = 0;
+  for (const [ia, ib, c] of D.lines) {
+    if (c !== ci) continue;
+    for (const idx of [ia, ib]) {
+      const [alt, az] = altaz(D.stars[idx][0], D.stars[idx][1], lst);
+      if (alt < 0) continue;
+      const [u, v] = proj(alt, az);
+      su += u; sv += v; n++;
+    }
+  }
+  return n ? { u: su / n, v: sv / n, n } : null;
+}
+
+function flyTo(u, v) {
+  const s1 = Math.max(view.s, 2.2);
+  const tx = -u * R * s1, ty = v * R * s1;
+  if (REDUCED) {
+    view.s = s1; view.x = tx; view.y = ty; clampView(); draw(); return;
+  }
+  const from = { ...view }, t0 = performance.now(), dur = 500;
+  (function step(now) {
+    const t = Math.min(1, (now - t0) / dur), e = t * (2 - t);   // easeOut
+    view.s = from.s + (s1 - from.s) * e;
+    view.x = from.x + (tx - from.x) * e;
+    view.y = from.y + (ty - from.y) * e;
+    clampView(); draw();
+    if (t < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+function chip(ico, label, onTap) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip";
+  b.innerHTML = (ico ? `<span class="ico">${ico}</span>` : "") +
+                `<span>${label}</span>`;
+  b.addEventListener("click", onTap);
+  strip.appendChild(b);
+}
+
+function moonIcon(frac, waxing) {
+  if (frac < 0.04) return "🌑";
+  if (frac > 0.96) return "🌕";
+  if (Math.abs(frac - 0.5) < 0.06) return waxing ? "🌓" : "🌗";
+  if (frac < 0.5) return waxing ? "🌒" : "🌘";
+  return waxing ? "🌔" : "🌖";
+}
+
+(function buildStrip() {
+  const s0 = sampleAt(0);
+  // moon
+  const phaseName = (D.meta.events[0] || "Moon").split(" · ")[0];
+  chip(moonIcon(s0.moon.frac, !!s0.moon.waxing),
+       `${phaseName} · ${Math.round(s0.moon.frac * 100)}%`, () => {
+    const s = sampleAt(offMin);
+    const [alt, az] = altaz(s.moon.ra, s.moon.dec, s.lst);
+    if (alt > 0) { const [u, v] = proj(alt, az); flyTo(u, v); }
+    else showNote("The Moon was below the horizon at this hour — " +
+                  "slide through the night to catch it rising or setting.");
+  });
+  // planets above the horizon at t0
+  D.window.planet_names.forEach((name, k) => {
+    const [alt] = altaz(s0.planets[k][0], s0.planets[k][1], s0.lst);
+    if (alt < 2) return;
+    chip("✶", name, () => {
+      const s = sampleAt(offMin);
+      const [alt2, az2] = altaz(s.planets[k][0], s.planets[k][1], s.lst);
+      if (alt2 > 0) { const [u, v] = proj(alt2, az2); flyTo(u, v); }
+      else showNote(`${name} had set by this hour — try an earlier time.`);
+    });
+  });
+  // meteor showers
+  (D.meta.showers || []).forEach((sh, k) => {
+    chip("☄", sh.name, () => {
+      const s = sampleAt(offMin);
+      const [alt, az] = altaz(sh.ra, sh.dec, s.lst);
+      showNote(`<b>${sh.name}</b> — active that night, peaking ${sh.peak}. ` +
+               (alt > 0 ? "Its radiant is the gold starburst on the chart."
+                        : "Its radiant was below the horizon at this hour."));
+      if (alt > 0) { const [u, v] = proj(alt, az); flyTo(u, v); }
+    });
+  });
+  // western zodiac
+  if (D.meta.zodiac) {
+    const z = D.meta.zodiac;
+    chip(null, z.label, () => {
+      const ci = conIndex(z.target);
+      const s = sampleAt(offMin);
+      const c = ci >= 0 ? conCentroidUV(ci, s.lst) : null;
+      let extra = "";
+      if (c) {
+        hlCon = ci; hlUntil = performance.now() + 3200;
+        flyTo(c.u, c.v);
+        setTimeout(draw, 3300);
+      } else {
+        extra = ` ${z.target} itself was below the horizon at this hour.`;
+      }
+      showNote(z.tip + extra);
+    });
+  }
+  // chinese zodiac
+  if (D.meta.chinese) {
+    const c = D.meta.chinese;
+    const jk = D.window.planet_names.indexOf("Jupiter");
+    chip(null, `${c.label} · ${c.hanzi}`, () => {
+      let extra = "";
+      if (jk >= 0) {
+        const s = sampleAt(offMin);
+        const [alt, az] = altaz(s.planets[jk][0], s.planets[jk][1], s.lst);
+        if (alt > 0) { const [u, v] = proj(alt, az); flyTo(u, v); }
+        else extra = " Jupiter was beneath the horizon at this hour.";
+      }
+      showNote(c.tip + extra);
+    });
+  }
+})();
+
+labelsBtn.addEventListener("click", () => {
+  showLabels = !showLabels;
+  labelsBtn.textContent = showLabels ? "hide names" : "show names";
+  draw();
+});
+
+copyBtn.addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(location.href); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = location.href; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  copyBtn.textContent = "copied ✓";
+  setTimeout(() => copyBtn.textContent = "copy link to this sky", 1600);
+});
+
 tlabel.textContent = fmtTime(0);
 size();
+
+/* gentle twinkle loop (skipped entirely under prefers-reduced-motion) */
+if (!REDUCED) {
+  let last = 0;
+  (function loop(now) {
+    if (now - last > 80) { twinkleT = now; last = now; draw(); }
+    requestAnimationFrame(loop);
+  })(0);
+}

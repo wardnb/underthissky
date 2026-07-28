@@ -29,9 +29,47 @@ PRODUCTS = os.path.expanduser("~/biz/products")
 sys.path.insert(0, PRODUCTS)
 
 from gen.starmap import (DATA, METEOR_SHOWERS, OCCASIONS,          # noqa: E402
-                         galactic_to_equatorial, moon_phase_name)
+                         galactic_to_equatorial, moon_phase_name, zodiac_for)
 from skyfield.api import Loader, wgs84                             # noqa: E402
 from skyfield.framelib import ecliptic_frame                       # noqa: E402
+
+from lny_table import LNY                                          # noqa: E402
+
+# Radiant positions (RA hours, Dec deg) for the shower table in starmap.py.
+RADIANTS = {
+    "Quadrantids": (15.3, 49.5), "Lyrids": (18.1, 33.6),
+    "Eta Aquariids": (22.5, -1.0), "Delta Aquariids": (22.7, -16.4),
+    "Perseids": (3.2, 58.0), "Orionids": (6.35, 15.5),
+    "Leonids": (10.3, 21.6), "Geminids": (7.55, 32.4),
+    "Ursids": (14.5, 75.4),
+}
+
+CN_STEMS = "甲乙丙丁戊己庚辛壬癸"
+CN_BRANCHES = "子丑寅卯辰巳午未申酉戌亥"
+CN_ELEMENTS = ["Wood", "Wood", "Fire", "Fire", "Earth", "Earth",
+               "Metal", "Metal", "Water", "Water"]
+CN_ANIMALS = ["Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake",
+              "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"]
+CN_HANZI = "鼠牛虎兔龍蛇馬羊猴雞狗豬"
+
+# Tropical sign -> IAU constellation name (for highlight targeting).
+SIGN_CON = {"Scorpio": "Scorpius", "Capricorn": "Capricornus"}
+
+
+def chinese_zodiac(d):
+    """Animal + element with the real Lunar New Year boundary (1900-2099)."""
+    y = d.year
+    if y not in LNY:
+        return None
+    lm, ld = LNY[y]
+    if (d.month, d.day) < (lm, ld):
+        y -= 1
+        if y not in LNY:
+            return None
+    stem, branch = (y - 4) % 10, (y - 4) % 12
+    return dict(year=y, element=CN_ELEMENTS[stem], animal=CN_ANIMALS[branch],
+                hanzi=CN_HANZI[branch],
+                ganzhi=CN_STEMS[stem] + CN_BRANCHES[branch])
 
 SALT = "uts-starlight-2026"
 MAG_DISPLAY = 5.6   # stars drawn
@@ -117,6 +155,8 @@ def sample_window(dt0, lat, lon):
         frac = float(m_app.fraction_illuminated(sun))
         _, mlon, _ = m_app.frame_latlon(ecliptic_frame)
         _, slon, _ = s_app.frame_latlon(ecliptic_frame)
+        if off == 0:
+            sample_window.sun_lon0 = slon.degrees % 360.0
         waxing = ((mlon.degrees - slon.degrees) % 360.0) < 180.0
         planets = []
         for key, _label in PLANETS:
@@ -166,6 +206,54 @@ def main():
     mid = samples[len(samples) // 2]
     events = events_for(dt0.date(), mid["moon"][2], bool(mid["moon"][3]))
 
+    # active showers with radiants, for on-chart markers
+    d0 = dt0.date()
+    showers = []
+    for name, (sm, sd), (em, ed), (pm, pd) in METEOR_SHOWERS:
+        start, end = d0.replace(month=sm, day=sd), d0.replace(month=em, day=ed)
+        active = (start <= d0 <= end if start <= end
+                  else (d0 >= start or d0 <= end))
+        if active and name in RADIANTS:
+            ra, dec = RADIANTS[name]
+            showers.append({"name": name, "ra": ra, "dec": dec,
+                            "peak": f"{datetime(d0.year, pm, pd):%b %-d}"})
+
+    # zodiac chips, framed by occasion (identity for births, setting otherwise)
+    birth = a.occasion == "birth"
+    z = zodiac_for(sample_window.sun_lon0)
+    sign_con = SIGN_CON.get(z["sign"], z["sign"])
+    if birth:
+        z_label = f"{z['glyph']} {z['sign']}"
+        if z["iau"] != sign_con:
+            z_tip = (f"{z['sign']} by the calendar — the Sun itself stood in "
+                     f"{z['iau']} that day.")
+        else:
+            z_tip = (f"{z['sign']} — and the Sun truly stood in that "
+                     f"constellation.")
+        z_target = sign_con
+    else:
+        z_label = f"☉ Sun in {z['iau']}"
+        z_tip = (f"The Sun stood in {z['iau']} that day — "
+                 f"{z['sign']} on the tropical calendar.")
+        z_target = z["iau"]
+
+    cz = chinese_zodiac(d0)
+    chinese = None
+    if cz:
+        year_name = f"Year of the {cz['element']} {cz['animal']}"
+        if birth:
+            c_label = f"Born in the {year_name}"
+            c_tip = (f"Born in the {year_name} ({cz['ganzhi']}) — a year "
+                     f"named by Jupiter, the Year Star (歲星), on its "
+                     f"twelve-year journey. The Year Star is on this chart.")
+        else:
+            c_label = year_name
+            c_tip = (f"It was the {year_name} ({cz['ganzhi']}) — a year "
+                     f"named by Jupiter, the Year Star (歲星). "
+                     f"The Year Star is on this chart.")
+        chinese = {"label": c_label, "tip": c_tip,
+                   "hanzi": cz["hanzi"], "ganzhi": cz["ganzhi"]}
+
     data = {
         "meta": {
             "title": a.title, "subtitle": subtitle, "place": a.place,
@@ -174,6 +262,10 @@ def main():
             "t0_epoch_ms": int(dt0.timestamp() * 1000),
             "utc_offset_min": int(dt0.utcoffset().total_seconds() // 60),
             "events": events,
+            "occasion": a.occasion or "custom",
+            "zodiac": {"label": z_label, "tip": z_tip, "target": z_target},
+            "chinese": chinese,
+            "showers": showers,
         },
         "window": {"start_min": -WINDOW_MIN, "step_min": STEP_MIN,
                    "samples": samples,

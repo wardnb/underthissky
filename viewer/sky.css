@@ -72,6 +72,36 @@ footer {
 }
 footer a { color: var(--dust); }
 footer .brand a { color: var(--gold); text-decoration: none; }
+.linkbtn {
+  background: none; border: none; padding: 2px 4px; cursor: pointer;
+  color: var(--gold); font: inherit; font-family: ui-monospace, monospace;
+  letter-spacing: 0.05em; text-decoration: underline dotted;
+  min-height: 24px;
+}
+.strip {
+  display: flex; gap: 8px; margin-top: 12px; padding: 2px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.strip::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; min-height: 36px; border-radius: 999px;
+  background: var(--raised); border: 1px solid var(--line);
+  color: var(--star); font-size: 0.78rem; cursor: pointer;
+  font-family: ui-monospace, monospace; white-space: nowrap;
+}
+.chip .ico { color: var(--gold); font-size: 0.9rem; }
+.chip:active { border-color: var(--gold); }
+.stripnote {
+  display: none; margin-top: 8px; padding: 8px 12px;
+  background: color-mix(in srgb, var(--raised) 88%, transparent);
+  border: 1px solid var(--line); border-left: 2px solid var(--gold);
+  border-radius: 4px; color: var(--dust); font-size: 0.78rem;
+  line-height: 1.5;
+}
+.caption h1 { letter-spacing: 0.06em; }
+.caption .events { letter-spacing: 0.03em; }
+footer .share { margin-bottom: 4px; }
 @media (prefers-reduced-motion: no-preference) {
   #tip { transition: opacity 120ms ease; }
 }
