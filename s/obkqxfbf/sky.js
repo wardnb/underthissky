@@ -108,8 +108,8 @@ function ensureMilky(lst) {
   if (D.mw) {
     const toQpx = (u, v) => toQ(u, v);
     UTS.drawMW(g, D.mw, lst, SINLAT, COSLAT, toQpx, {
-      alphas: LIGHT ? [0.020, 0.022, 0.026, 0.030]
-                    : [0.016, 0.018, 0.022, 0.026],
+      alphas: LIGHT ? [0.026, 0.030, 0.036, 0.042]
+                    : [0.026, 0.030, 0.036, 0.044],
       colors: LIGHT
         ? [[44, 50, 66], [44, 50, 66], [44, 50, 66], [44, 50, 66]]
         : undefined,
