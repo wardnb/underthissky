@@ -25,7 +25,9 @@ def main():
         "lat": LAT, "lon": LON,
         "stars": stars,                       # [ra_h, dec_deg, mag]
         "lines": [[a, b] for a, b, _ci in lines],
-        "milky": milky_paths(),
+        "milky": milky_paths(),               # grain placement only
+        "mw": json.load(open(os.path.join(
+            HERE, "viewer", "mw_levels.json")))["levels"],
     }
     js = "window.HOME = " + json.dumps(data, separators=(",", ":")) + ";\n"
     path = os.path.join(HERE, "home_sky.js")

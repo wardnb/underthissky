@@ -70,24 +70,10 @@ function draw() {
       }
       return pts;
     });
-    ctx.lineJoin = ctx.lineCap = "round";
-    for (const [wm, ab] of [[3.2, 0.03], [1.9, 0.05], [1.0, 0.075]]) {
-      for (let p = 0; p < paths.length; p++) {
-        const edge = Math.abs(p - 2) / 2, pts = paths[p];
-        for (let i = 0; i + 1 < pts.length; i++) {
-          const A = pts[i], B = pts[i + 1];
-          if (!A || !B) continue;
-          const core = (A[2] + B[2]) / 2;
-          const a = ab * (0.35 + 0.65 * core) * (1 - 0.45 * edge) * milkyA;
-          ctx.strokeStyle = `rgba(233,238,255,${a.toFixed(3)})`;
-          ctx.lineWidth = R * 0.05 * wm * (1 - 0.3 * edge);
-          ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]);
-          ctx.stroke();
-        }
-      }
-    }
+    if (H.mw)
+      U.drawMW(ctx, H.mw, lst, SINLAT, COSLAT, toPx, { scale: milkyA });
     const rr = rng(424242);
-    ctx.fillStyle = `rgba(237,241,255,${(0.28 * milkyA).toFixed(3)})`;
+    ctx.fillStyle = `rgba(237,241,255,${(0.14 * milkyA).toFixed(3)})`;
     for (let p = 0; p < paths.length; p++) {
       const pts = paths[p];
       for (let i = 0; i + 1 < pts.length; i++) {

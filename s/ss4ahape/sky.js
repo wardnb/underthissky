@@ -100,29 +100,17 @@ function ensureMilky(lst) {
   const px1 = Q / (2 * MW.extent);          // px per unit coord
   const baseW = px1 * 0.055;
   g.lineJoin = g.lineCap = "round";
-  // 1+3: layered feathered glow, alpha scaled by core proximity
-  const passes = LIGHT
-    ? [[3.4, 0.020], [2.2, 0.030], [1.3, 0.045]]
-    : [[3.6, 0.028], [2.4, 0.045], [1.5, 0.065], [0.85, 0.085]];
-  for (const [wMul, aBase] of passes) {
-    for (let p = 0; p < paths.length; p++) {
-      const edge = Math.abs(p - (paths.length - 1) / 2) / ((paths.length - 1) / 2);
-      const pts = paths[p];
-      for (let i = 0; i + 1 < pts.length; i++) {
-        const A = pts[i], B = pts[i + 1];
-        if (!A || !B) continue;
-        const core = (A[2] + B[2]) / 2;
-        const a = aBase * (0.35 + 0.65 * core) * (1 - 0.45 * edge);
-        // 4: warm core, cool edges (ink-wash gray on the light theme)
-        const col = LIGHT ? "40,46,62"
-          : `${Math.round(225 + 30 * core)},${Math.round(232 + 6 * core)},` +
-            `${Math.round(255 - 22 * core)}`;
-        g.strokeStyle = `rgba(${col},${a.toFixed(3)})`;
-        g.lineWidth = baseW * wMul * (1 - 0.3 * edge);
-        g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
-        g.stroke();
-      }
-    }
+  // isophote fills (Bortle 2-3 calibration): faint nested levels, the
+  // Great Rift articulated by the evenodd holes — barely above background
+  if (D.mw) {
+    const toQpx = (u, v) => toQ(u, v);
+    UTS.drawMW(g, D.mw, lst, SINLAT, COSLAT, toQpx, {
+      alphas: LIGHT ? [0.020, 0.022, 0.026, 0.030]
+                    : [0.016, 0.018, 0.022, 0.026],
+      colors: LIGHT
+        ? [[44, 50, 66], [44, 50, 66], [44, 50, 66], [44, 50, 66]]
+        : undefined,
+    });
   }
   // 2: fine grain — faint unresolved-star speckles seeded deterministically
   const rnd = mwRng(987654321 ^ Math.round(lst * 100));
@@ -140,7 +128,7 @@ function ensureMilky(lst) {
         const jy = (rnd() - 0.5) * baseW * 2.6 * (1 - 0.4 * edge);
         const x = A[0] + (B[0] - A[0]) * t + jx;
         const y = A[1] + (B[1] - A[1]) * t + jy;
-        const a = (0.10 + 0.34 * rnd()) * (0.4 + 0.6 * core);
+        const a = (0.05 + 0.17 * rnd()) * (0.4 + 0.6 * core);
         g.fillStyle = LIGHT ? `rgba(40,46,62,${(a * 0.8).toFixed(3)})`
                             : `rgba(237,241,255,${a.toFixed(3)})`;
         const r = (0.4 + rnd() * 0.7) * DPR * 0.6;

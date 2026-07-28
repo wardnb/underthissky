@@ -274,7 +274,9 @@ def main():
         "names": names,
         "lines": lines,
         "cons": cons,
-        "milky": milky_paths(),
+        "milky": milky_paths(),        # grain placement only
+        "mw": json.load(open(os.path.join(
+            HERE, "viewer", "mw_levels.json")))["levels"],
     }
 
     coords = (f"{abs(a.lat):.4f}° {'N' if a.lat >= 0 else 'S'}   ·   "
