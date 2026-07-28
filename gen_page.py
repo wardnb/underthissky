@@ -72,7 +72,7 @@ def chinese_zodiac(d):
                 ganzhi=CN_STEMS[stem] + CN_BRANCHES[branch])
 
 SALT = "uts-starlight-2026"
-MAG_DISPLAY = 5.6   # stars drawn
+MAG_DISPLAY = 5.0   # stars drawn — trimmed so figures + milky way read clearly
 MAG_ANCHOR = 6.5    # kept only as constellation-line anchors
 WINDOW_MIN = 360    # slider = t0 +- 6h
 STEP_MIN = 30
