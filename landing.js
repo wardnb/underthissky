@@ -25,8 +25,35 @@ function rng(seed) {
 
 function toPx(u, v) { return [CX + u * R, CY - v * R]; }
 
+/* By day the true local sky is starless, which makes a poor first
+   impression — so we show the sky Port Huron will have tonight and say
+   so in the caption. Still the real sky, just the honest next one. */
+function skyMoment(now) {
+  const lstNow = U.lstHours(now, H.lon);
+  const sunNow = U.sunEq(now);
+  if (U.altaz(sunNow.ra, sunNow.dec, lstNow, SINLAT, COSLAT)[0] < -8)
+    return { ms: now, tonight: false };
+  // step forward in 15-min jumps to the next properly dark moment
+  for (let m = 15; m <= 24 * 60; m += 15) {
+    const t = now + m * 60000;
+    const l = U.lstHours(t, H.lon), s = U.sunEq(t);
+    if (U.altaz(s.ra, s.dec, l, SINLAT, COSLAT)[0] < -14)
+      return { ms: t, tonight: true };
+  }
+  return { ms: now, tonight: false };
+}
+
+let capShown = null;
 function draw() {
-  const ms = Date.now();
+  const moment = skyMoment(Date.now());
+  const ms = moment.ms;
+  if (capShown !== moment.tonight) {
+    capShown = moment.tonight;
+    const cap = document.querySelector(".skycap");
+    if (cap) cap.textContent = moment.tonight
+      ? "the sky over Port Huron, Michigan — tonight"
+      : "the sky over Port Huron, Michigan — right now";
+  }
   const lst = U.lstHours(ms, H.lon);
   const sun = U.sunEq(ms);
   const sunAlt = U.altaz(sun.ra, sun.dec, lst, SINLAT, COSLAT)[0];
