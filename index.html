@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Under This Sky — the real night sky, for your moment</title>
+<meta name="description" content="Astronomically accurate personalized star charts. Every chart has a real sky behind it — scan the code on yours to explore it.">
+<style>
+  :root {
+    --void: #0B1026; --raised: #141C30; --line: #1E2740;
+    --dust: #7B86A4; --star: #EDF1FF; --gold: #FFC24B;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    min-height: 100dvh; background: var(--void); color: var(--star);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px; line-height: 1.5; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+  #sky { position: fixed; inset: 0; z-index: 0; }
+  main { position: relative; z-index: 1; max-width: 560px; }
+  .mark { width: 96px; height: 96px; margin: 0 auto 18px; opacity: 0.95; }
+  h1 {
+    font-size: clamp(1.6rem, 6vw, 2.4rem); font-weight: 800;
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .tag {
+    margin-top: 10px; color: var(--gold); font-family: ui-monospace, monospace;
+    font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  p.lead { margin-top: 18px; color: var(--dust); font-size: 1.0rem; text-wrap: balance; }
+  .cta {
+    display: inline-block; margin-top: 26px; min-height: 44px; padding: 12px 22px;
+    border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+    border-radius: 4px; color: var(--gold); text-decoration: none;
+    font-family: ui-monospace, monospace; font-size: 0.82rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .cta:hover { background: color-mix(in srgb, var(--gold) 12%, transparent); }
+  footer {
+    position: relative; z-index: 1; margin-top: 40px; color: var(--dust);
+    font-size: 0.75rem; font-family: ui-monospace, monospace; letter-spacing: 0.06em;
+  }
+  footer a { color: var(--dust); }
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main>
+  <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="47" fill="none" stroke="#FFC24B" stroke-width="1.4"/>
+    <g stroke="#4A5A8A" stroke-width="1">
+      <line x1="38" y1="26" x2="60" y2="30"/><line x1="38" y1="26" x2="55" y2="52"/>
+      <line x1="60" y1="30" x2="49" y2="48"/><line x1="49" y1="48" x2="52" y2="50"/>
+      <line x1="52" y1="50" x2="55" y2="52"/><line x1="55" y1="52" x2="64" y2="74"/>
+      <line x1="49" y1="48" x2="36" y2="70"/><line x1="36" y1="70" x2="64" y2="74"/>
+    </g>
+    <g fill="#EDF1FF">
+      <circle cx="60" cy="30" r="1.8"/><circle cx="49" cy="48" r="1.5"/>
+      <circle cx="52" cy="50" r="1.7"/><circle cx="55" cy="52" r="1.5"/>
+      <circle cx="64" cy="74" r="1.8"/><circle cx="36" cy="70" r="2.4"/>
+    </g>
+    <g stroke="#FFC24B" stroke-width="1.1">
+      <line x1="33" y1="26" x2="43" y2="26"/><line x1="38" y1="21" x2="38" y2="31"/>
+    </g>
+    <circle cx="38" cy="26" r="2.2" fill="#FFC24B"/>
+  </svg>
+  <h1>Under This Sky</h1>
+  <div class="tag">Astronomically accurate &middot; any date &middot; any place on Earth</div>
+  <p class="lead">Every chart we make has a real sky behind it — computed from star
+  catalogs and planetary ephemerides for one exact moment, one exact place.
+  If a chart brought you here, your sky's interactive page is coming to the
+  code you scanned.</p>
+  <a class="cta" href="https://nightshiftastroco.etsy.com" rel="noopener">Get your sky &rarr;</a>
+</main>
+<footer>a <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a> thing</footer>
+<script>
+(function () {
+  const c = document.getElementById("sky"), x = c.getContext("2d");
+  let stars = [];
+  function size() {
+    c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio;
+    stars = [];
+    let seed = 20260727;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let i = 0; i < 220; i++)
+      stars.push({ x: rnd() * c.width, y: rnd() * c.height,
+                   r: (0.4 + rnd() * 1.3) * devicePixelRatio,
+                   p: rnd() * Math.PI * 2, s: 0.2 + rnd() * 0.6 });
+  }
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function draw(t) {
+    x.clearRect(0, 0, c.width, c.height);
+    for (const s of stars) {
+      const a = reduced ? 0.7 : 0.45 + 0.4 * Math.sin(s.p + t * 0.001 * s.s);
+      x.globalAlpha = Math.max(0.12, a);
+      x.fillStyle = "#EDF1FF";
+      x.beginPath(); x.arc(s.x, s.y, s.r, 0, 7); x.fill();
+    }
+    if (!reduced) requestAnimationFrame(draw);
+  }
+  addEventListener("resize", size);
+  size(); requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
