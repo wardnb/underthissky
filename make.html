@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Make your sky — Under This Sky</title>
+<meta name="description" content="See the real night sky over any place on Earth, on any date. Astronomically accurate, interactive, free.">
+<link rel="stylesheet" href="viewer/sky.css">
+<style>
+  .maker { max-width: 34rem; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
+  .maker h1 { font-size: 1.5rem; margin: 0 0 .35rem; }
+  .maker .lede { color: var(--muted, #7B86A4); font-size: .95rem; line-height: 1.5;
+                 margin: 0 0 1.25rem; }
+  .fields { display: grid; gap: .75rem; }
+  .row { display: grid; gap: .75rem; grid-template-columns: 1fr 1fr; }
+  label { display: block; font-size: .78rem; letter-spacing: .08em;
+          text-transform: uppercase; color: var(--muted, #7B86A4); margin-bottom: .3rem; }
+  input[type=text], input[type=date], input[type=time] {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+    padding: .6rem .7rem; border-radius: .4rem;
+    border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04);
+    color: inherit;
+  }
+  .go { width: 100%; margin-top: 1rem; font: inherit; font-size: 1rem;
+        padding: .75rem 1rem; border-radius: .4rem; cursor: pointer;
+        border: 1px solid var(--accent, #FFC24B); background: transparent;
+        color: var(--accent, #FFC24B); letter-spacing: .06em; }
+  .go[disabled] { opacity: .55; cursor: progress; }
+  .note { font-size: .8rem; color: var(--muted, #7B86A4); margin-top: .8rem;
+          line-height: 1.5; }
+  .err { color: #FF8A7A; font-size: .85rem; margin-top: .7rem; min-height: 1.2em; }
+  #result { display: none; }
+  .again { margin: 1.25rem auto 0; display: block; }
+</style>
+</head>
+<body>
+
+<div class="page maker" id="form">
+  <h1>Make your sky</h1>
+  <p class="lede">Pick a moment and a place. We compute where every star, the
+  Moon and the planets actually were — from real catalogues, not a decorative
+  pattern. Free, no account, nothing to install.</p>
+
+  <div class="fields">
+    <div>
+      <label for="place">Place</label>
+      <input type="text" id="place" placeholder="Boise, Idaho" autocomplete="off">
+    </div>
+    <div class="row">
+      <div>
+        <label for="date">Date</label>
+        <input type="date" id="date">
+      </div>
+      <div>
+        <label for="time">Time</label>
+        <input type="time" id="time" value="21:30">
+      </div>
+    </div>
+    <div>
+      <label for="title">Headline (optional)</label>
+      <input type="text" id="title" placeholder="THE NIGHT WE MET" maxlength="40">
+    </div>
+  </div>
+
+  <button class="go" id="go" type="button">Show me that sky →</button>
+  <div class="err" id="err" role="status"></div>
+  <p class="note" id="tznote"></p>
+  <p class="note">Place lookup uses OpenStreetMap. Times are read in the
+  timezone shown above — if you're charting somewhere far away, adjust the
+  clock accordingly.</p>
+</div>
+
+<div class="page" id="result">
+  <header class="keep">
+    <div class="rule" aria-hidden="true"></div>
+    <h1 id="rTitle">YOUR SKY</h1>
+    <div class="occasion" id="rSub"></div>
+    <div class="whereline">
+      <span id="rPlace"></span>
+      <span class="sep" aria-hidden="true">·</span>
+      <span id="when"></span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="skywrap">
+      <canvas id="sky" aria-label="Interactive star chart"></canvas>
+      <div id="tip" role="status"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button id="labelsbtn" class="ctl" type="button" aria-pressed="false">Names</button>
+    <input id="time2" type="range" min="-360" max="360" step="5" value="0"
+           aria-label="Time of night">
+    <div class="clock" id="tlabel"></div>
+  </div>
+  <p class="hint">Drag to pan &middot; pinch to zoom &middot; tap a star</p>
+
+  <section class="details">
+    <h2 class="eyebrow">That night&rsquo;s sky</h2>
+    <div id="strip" class="strip" aria-label="That night's sky"></div>
+    <div id="stripnote" class="stripnote" role="status"></div>
+  </section>
+
+  <section class="plate">
+    <div class="coords" id="rCoords"></div>
+    <div class="events" id="rEvents"></div>
+  </section>
+
+  <footer>
+    <button id="copybtn" class="ctl ghost" type="button">Copy link to this sky</button>
+    <button class="ctl ghost again" id="again" type="button">Make another sky</button>
+    <div class="prov">every star drawn from real catalogues &middot; positions
+      computed in your browser</div>
+    <div class="brand">want it on paper?
+      <a href="https://nightshiftastroco.etsy.com" rel="noopener">Night Shift Astro Co.</a>
+      prints this exact sky &middot; <a href="/">underthissky.net</a>
+    </div>
+  </footer>
+</div>
+
+<script src="viewer/ephem.js"></script>
+<script src="viewer/make.js"></script>
+</body>
+</html>
