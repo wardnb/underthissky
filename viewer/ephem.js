@@ -136,7 +136,7 @@
       + 48.888 * cos(M);
 
     var lj = toJ2000(lam, T);
-    return { eq: eclToEq(lj, bet, 23.4392911), lam: lj, dist: r };
+    return { eq: eclToEq(lj, bet, 23.4392911), lam: lj, bet: bet, dist: r };
   }
 
   /* Geocentric -> topocentric (Meeus ch.40). Matters only for the Moon.
@@ -249,5 +249,5 @@
 
   root.UTSEphem = { jd: jd, gmst: gmst, lst: lst, sun: sun, moon: moon,
                     planet: planet, sample: sample, window: window_,
-                    PLANET_NAMES: NAMES };
+                    helio: helio, eclToEq: eclToEq, PLANET_NAMES: NAMES };
 })(typeof window !== "undefined" ? window : globalThis);

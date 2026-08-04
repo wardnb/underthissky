@@ -38,6 +38,28 @@
               "Oct", "Nov", "Dec"];
 
   var $ = function (id) { return document.getElementById(id); };
+  var world = "earth";
+
+  /* Landing sites. lat/lon are body coordinates (east-positive), and the
+   * default moment is the real landing/arrival time in UTC. */
+  var SITES = {
+    moon: [
+      { n: "Tranquility Base — Apollo 11", lat: 0.6741, lon: 23.4730,
+        t: Date.UTC(1969, 6, 20, 20, 17), title: "TRANQUILITY BASE" },
+      { n: "Hadley–Apennine — Apollo 15", lat: 26.1322, lon: 3.6339,
+        t: Date.UTC(1971, 6, 30, 22, 16), title: "HADLEY RILLE" },
+      { n: "Taurus–Littrow — Apollo 17", lat: 20.1908, lon: 30.7717,
+        t: Date.UTC(1972, 11, 11, 19, 54), title: "TAURUS-LITTROW" }
+    ],
+    mars: [
+      { n: "Jezero Crater — Perseverance", lat: 18.4447, lon: 77.4508,
+        t: Date.UTC(2021, 1, 18, 20, 55), title: "JEZERO CRATER" },
+      { n: "Gale Crater — Curiosity", lat: -4.5895, lon: 137.4417,
+        t: Date.UTC(2012, 7, 6, 5, 17), title: "GALE CRATER" },
+      { n: "Olympus Mons — summit", lat: 18.65, lon: 226.2,
+        t: Date.UTC(2026, 7, 3, 21, 0), title: "OLYMPUS MONS" }
+    ]
+  };
 
   function activeShowers(month, day) {
     var out = [];
@@ -77,6 +99,7 @@
   }
 
   function build(catalog, place, when, title) {
+    if (world !== "earth") return buildWorld(catalog, place, when, title);
     var lat = place.lat, lon = place.lon;
     var t0 = when.getTime();
     var offMin = -when.getTimezoneOffset();
@@ -108,6 +131,45 @@
     return SKY;
   }
 
+  /* Off-Earth: rotate the catalogue into the body frame and build the window
+   * from worlds.js. Stars are unchanged physically — only the frame moves. */
+  function buildWorld(catalog, place, when, title) {
+    var t0 = when.getTime();
+    var JD = UTSEphem.jd(t0);
+    var B = UTSWorlds.BODIES[world];
+    var win = UTSWorlds.window(world, t0, place.lon, place.lat,
+                               -WINDOW_MIN, STEP_MIN, WINDOW_MIN);
+    var cat = UTSWorlds.catalogFor(world, catalog, JD);
+
+    var events = [];
+    if (B.companion === "Earth") {
+      var mid = win.samples[Math.round(WINDOW_MIN / STEP_MIN)];
+      events.push("Earth · " + Math.round(mid.moon[2] * 100) + "% lit");
+      events.push("Earth never rises or sets here — the Moon keeps one face turned home");
+    } else if (world === "mars") {
+      events.push("No moon disc — Phobos and Deimos are too small to draw");
+      events.push("A sol is 24h 37m · Earth appears as a bright dot, labelled");
+      events.push("Mars' pole points near Deneb, not Polaris");
+    }
+
+    var meta = {
+      title: (title || place.title || "YOUR SKY").toUpperCase(),
+      subtitle: "the sky from " + B.label,
+      place: place.name, lat: place.lat, lon: place.lon,
+      theme: "classic",
+      date_label: MONTHS[when.getUTCMonth()] + " " + when.getUTCDate() + ", " +
+                  when.getUTCFullYear() + " UTC",
+      t0_epoch_ms: t0, utc_offset_min: 0,
+      events: events, occasion: null, showers: []
+    };
+
+    var SKY = { meta: meta, window: win };
+    ["stars", "names", "lines", "cons", "milky", "mw"].forEach(function (k) {
+      SKY[k] = cat[k];
+    });
+    return SKY;
+  }
+
   function show(SKY) {
     $("rTitle").textContent = SKY.meta.title;
     $("rPlace").textContent = SKY.meta.place;
@@ -115,6 +177,7 @@
       Math.abs(SKY.meta.lat).toFixed(4) + "° " + (SKY.meta.lat >= 0 ? "N" : "S") +
       "   ·   " + Math.abs(SKY.meta.lon).toFixed(4) + "° " + (SKY.meta.lon >= 0 ? "E" : "W");
     $("rEvents").textContent = SKY.meta.events.join("   ·   ");
+    $("rSub").textContent = SKY.meta.subtitle || "";
     $("form").style.display = "none";
     /* must be an explicit value: the stylesheet rule is `#result{display:none}`,
      * so clearing the inline style would leave it hidden and sky.js would size
@@ -145,15 +208,53 @@
         Intl.DateTimeFormat().resolvedOptions().timeZone + ".";
     } catch (e) { /* older browsers: leave blank */ }
 
+    function selectWorld(w) {
+      world = w;
+      Array.prototype.forEach.call(document.querySelectorAll(".wbtn"), function (b) {
+        b.classList.toggle("on", b.dataset.world === w);
+      });
+      var off = (w !== "earth");
+      $("siteWrap").style.display = off ? "" : "none";
+      $("placeWrap").style.display = off ? "none" : "";
+      $("tznote").textContent = off
+        ? "Times are UTC — there is no local timezone out there."
+        : "Times read in " + (Intl.DateTimeFormat().resolvedOptions().timeZone || "local time") + ".";
+      if (off) {
+        var sel = $("site");
+        sel.innerHTML = "";
+        SITES[w].forEach(function (site, i) {
+          var o = document.createElement("option");
+          o.value = i; o.textContent = site.n; sel.appendChild(o);
+        });
+        applySite();
+      }
+    }
+
+    function applySite() {
+      var site = SITES[world][+$("site").value || 0];
+      var d = new Date(site.t);
+      $("date").value = d.toISOString().slice(0, 10);
+      $("time").value = d.toISOString().slice(11, 16);
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll(".wbtn"), function (b) {
+      b.addEventListener("click", function () { selectWorld(b.dataset.world); });
+    });
+    $("site").addEventListener("change", applySite);
+
     $("go").addEventListener("click", function () {
       var q = $("place").value.trim();
       var dv = $("date").value, tv = $("time").value || "21:30";
       $("err").textContent = "";
-      if (!q) { $("err").textContent = "Where was it?"; return; }
+      var off = (world !== "earth");
+      if (!off && !q) { $("err").textContent = "Where was it?"; return; }
       if (!dv) { $("err").textContent = "Pick a date."; return; }
 
       var parts = dv.split("-"), hm = tv.split(":");
-      var when = new Date(+parts[0], +parts[1] - 1, +parts[2], +hm[0], +hm[1]);
+      /* off Earth there is no local timezone to speak of — read the clock as UTC */
+      var when = off
+        ? new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2], +hm[0], +hm[1]))
+        : new Date(+parts[0], +parts[1] - 1, +parts[2], +hm[0], +hm[1]);
       if (isNaN(when.getTime())) { $("err").textContent = "That date didn't parse."; return; }
       /* JPL approximate elements are only valid over this span */
       var y = when.getFullYear();
@@ -164,8 +265,13 @@
 
       $("go").disabled = true;
       $("go").textContent = "Computing…";
+      var site = off ? SITES[world][+$("site").value || 0] : null;
+      var placeP = off
+        ? Promise.resolve({ lat: site.lat, lon: site.lon, name: site.n,
+                            title: site.title })
+        : geocode(q);
       Promise.all([
-        geocode(q),
+        placeP,
         fetch("viewer/catalog.json").then(function (r) { return r.json(); })
       ]).then(function (res) {
         show(build(res[1], res[0], when, $("title").value.trim()));

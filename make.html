@@ -26,6 +26,14 @@
         border: 1px solid var(--accent, #FFC24B); background: transparent;
         color: var(--accent, #FFC24B); letter-spacing: .06em; }
   .go[disabled] { opacity: .55; cursor: progress; }
+  .worlds { display: flex; gap: .5rem; margin: 0 0 1.1rem; }
+  .wbtn { flex: 1; font: inherit; font-size: .9rem; padding: .5rem .4rem;
+          border-radius: .4rem; cursor: pointer; color: inherit;
+          border: 1px solid rgba(255,255,255,.18); background: transparent; }
+  .wbtn.on { border-color: var(--accent, #FFC24B); color: var(--accent, #FFC24B); }
+  select { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+           padding: .6rem .7rem; border-radius: .4rem; color: inherit;
+           border: 1px solid rgba(255,255,255,.18); background: rgba(20,24,40,.9); }
   .note { font-size: .8rem; color: var(--muted, #7B86A4); margin-top: .8rem;
           line-height: 1.5; }
   .err { color: #FF8A7A; font-size: .85rem; margin-top: .7rem; min-height: 1.2em; }
@@ -41,8 +49,18 @@
   Moon and the planets actually were — from real catalogues, not a decorative
   pattern. Free, no account, nothing to install.</p>
 
+  <div class="worlds" id="worlds">
+    <button type="button" class="wbtn on" data-world="earth">Earth</button>
+    <button type="button" class="wbtn" data-world="moon">The Moon</button>
+    <button type="button" class="wbtn" data-world="mars">Mars</button>
+  </div>
+
   <div class="fields">
-    <div>
+    <div id="siteWrap" style="display:none">
+      <label for="site">Landing site</label>
+      <select id="site"></select>
+    </div>
+    <div id="placeWrap">
       <label for="place">Place</label>
       <input type="text" id="place" placeholder="Boise, Idaho" autocomplete="off">
     </div>
@@ -121,6 +139,7 @@
 </div>
 
 <script src="viewer/ephem.js"></script>
+<script src="viewer/worlds.js"></script>
 <script src="viewer/make.js"></script>
 </body>
 </html>
