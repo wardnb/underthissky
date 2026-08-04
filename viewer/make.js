@@ -185,10 +185,6 @@
     $("result").style.display = "block";
     void $("result").offsetWidth;          /* flush layout before sky.js sizes */
 
-    /* sky.js expects the slider to be #time; the form owns that id until now */
-    var slider = $("time2");
-    if (slider) slider.id = "time";
-
     window.SKY = SKY;
     var s = document.createElement("script");
     s.src = "viewer/projection.js";
@@ -234,7 +230,7 @@
       var site = SITES[world][+$("site").value || 0];
       var d = new Date(site.t);
       $("date").value = d.toISOString().slice(0, 10);
-      $("time").value = d.toISOString().slice(11, 16);
+      $("tod").value = d.toISOString().slice(11, 16);
     }
 
     Array.prototype.forEach.call(document.querySelectorAll(".wbtn"), function (b) {
@@ -244,7 +240,7 @@
 
     $("go").addEventListener("click", function () {
       var q = $("place").value.trim();
-      var dv = $("date").value, tv = $("time").value || "21:30";
+      var dv = $("date").value, tv = $("tod").value || "21:30";
       $("err").textContent = "";
       var off = (world !== "earth");
       if (!off && !q) { $("err").textContent = "Where was it?"; return; }
