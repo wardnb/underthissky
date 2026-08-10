@@ -13,6 +13,7 @@ const SINLAT = Math.sin(H.lat * Math.PI / 180);
 const COSLAT = Math.cos(H.lat * Math.PI / 180);
 
 let W = 0, HT = 0, R = 0, CX = 0, CY = 0, twT = 0;
+const MWC = { c: document.createElement("canvas"), key: null };  // milky cache
 const TW = [];
 for (let i = 0; i < H.stars.length && TW.length < 12; i++)
   if (H.stars[i][2] < 1.4) TW.push(i);
@@ -85,38 +86,60 @@ function draw() {
     ctx.fillRect(0, 0, W, HT);
   }
 
-  // milky way: soft band + grain (compact cousin of the viewer recipe)
+  // milky way: soft band + grain (compact cousin of the viewer recipe),
+  // cached because it only moves with the sidereal clock while the twinkle
+  // loop redraws ~9x a second — and because the isophotes have to be blurred
+  // before compositing. They are nested constant-alpha fills, so each contour
+  // is a hard one-pixel step; drawn straight to the visible canvas the stack
+  // terraces the same way the poster printed as contour lines (see
+  // gen/starmap.py, commit 723a4f4). Cached at scale 1 and composited at
+  // globalAlpha = milkyA, so twilight still fades the band in and out.
   if (milkyA > 0.02) {
-    const paths = H.milky.map(path => {
-      const pts = [];
-      for (let i = 0; i < path.length; i++) {
-        const [alt, az] = U.altaz(path[i][0], path[i][1], lst, SINLAT, COSLAT);
-        if (alt < -4) { pts.push(null); continue; }
-        const [u, v] = U.proj(alt, az);
-        pts.push([...toPx(u, v), (Math.cos(i * 3 * Math.PI / 180) + 1) / 2]);
+    const key = `${W}x${HT}:${R.toFixed(0)}:${lst.toFixed(3)}`;
+    if (MWC.key !== key) {
+      MWC.key = key;
+      MWC.c.width = Math.max(1, Math.round(W * DPR));
+      MWC.c.height = Math.max(1, Math.round(HT * DPR));
+      const m = MWC.c.getContext("2d");
+      m.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const paths = H.milky.map(path => {
+        const pts = [];
+        for (let i = 0; i < path.length; i++) {
+          const [alt, az] = U.altaz(path[i][0], path[i][1], lst, SINLAT, COSLAT);
+          if (alt < -4) { pts.push(null); continue; }
+          const [u, v] = U.proj(alt, az);
+          pts.push([...toPx(u, v), (Math.cos(i * 3 * Math.PI / 180) + 1) / 2]);
+        }
+        return pts;
+      });
+      if (H.mw) {
+        m.save();
+        if ("filter" in m) m.filter = `blur(${(R * 0.022).toFixed(2)}px)`;
+        U.drawMW(m, H.mw, lst, SINLAT, COSLAT, toPx, {});
+        m.restore();
       }
-      return pts;
-    });
-    if (H.mw)
-      U.drawMW(ctx, H.mw, lst, SINLAT, COSLAT, toPx, { scale: milkyA });
-    const rr = rng(424242);
-    ctx.fillStyle = `rgba(237,241,255,${(0.14 * milkyA).toFixed(3)})`;
-    for (let p = 0; p < paths.length; p++) {
-      const pts = paths[p];
-      for (let i = 0; i + 1 < pts.length; i++) {
-        const A = pts[i], B = pts[i + 1];
-        if (!A || !B) continue;
-        const n = Math.round(1 + 3 * A[2]);
-        for (let k = 0; k < n; k++) {
-          const t = rr(), j = R * 0.06;
-          ctx.beginPath();
-          ctx.arc(A[0] + (B[0] - A[0]) * t + (rr() - 0.5) * j,
+      const rr = rng(424242);
+      m.fillStyle = "rgba(237,241,255,0.14)";
+      for (let p = 0; p < paths.length; p++) {
+        const pts = paths[p];
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const A = pts[i], B = pts[i + 1];
+          if (!A || !B) continue;
+          const n = Math.round(1 + 3 * A[2]);
+          for (let k = 0; k < n; k++) {
+            const t = rr(), j = R * 0.06;
+            m.beginPath();
+            m.arc(A[0] + (B[0] - A[0]) * t + (rr() - 0.5) * j,
                   A[1] + (B[1] - A[1]) * t + (rr() - 0.5) * j,
                   (0.3 + rr() * 0.6) * DPR, 0, 7);
-          ctx.fill();
+            m.fill();
+          }
         }
       }
     }
+    ctx.globalAlpha = milkyA;
+    ctx.drawImage(MWC.c, 0, 0, W, HT);
+    ctx.globalAlpha = 1;
   }
 
   // constellation lines, whisper-quiet

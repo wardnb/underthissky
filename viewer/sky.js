@@ -66,8 +66,9 @@ function sampleAt(off) {
    Drawn once per (lst, zoom-bucket) into an offscreen canvas in unit-sky
    space, then composited each frame — layered glow + seeded star-grain,
    density-weighted toward the galactic core. */
-const MW = { canvas: document.createElement("canvas"), extent: 1.05,
-             key: null };
+const MW = { canvas: document.createElement("canvas"),
+             band: document.createElement("canvas"),   // isophotes, pre-blur
+             extent: 1.05, key: null };
 const LIGHT = (D.meta.theme === "minimal");
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 const GROUND = LIGHT ? "#FBFAF7" : "#0B1026";   // the disc's own fill
@@ -104,16 +105,35 @@ function ensureMilky(lst) {
   const baseW = px1 * 0.055;
   g.lineJoin = g.lineCap = "round";
   // isophote fills (Bortle 2-3 calibration): faint nested levels, the
-  // Great Rift articulated by the evenodd holes — barely above background
+  // Great Rift articulated by the evenodd holes — barely above background.
+  //
+  // The levels are nested constant-alpha fills, so every contour boundary is
+  // a one-pixel brightness step by construction. Composited straight onto the
+  // layer the dark-theme stack runs 11 -> 16.3 -> 22.4 -> 29.8 -> 39.0 in R:
+  // four steps of 5-9 levels. That is the same terracing that printed as
+  // contour lines across the poster (gen/starmap.py, commit 723a4f4), a few
+  // times milder — but Mach banding makes low-contrast edges on a smooth dark
+  // field read worse than the numbers suggest. So the band goes to its own
+  // canvas, gets blurred, and is composited as a glow. The grain below is
+  // drawn afterwards and stays crisp, which is the point of it.
   if (D.mw) {
     const toQpx = (u, v) => toQ(u, v);
-    UTS.drawMW(g, D.mw, lst, SINLAT, COSLAT, toQpx, {
+    if (MW.band.width !== Q) MW.band.width = MW.band.height = Q;
+    const bg = MW.band.getContext("2d");
+    bg.clearRect(0, 0, Q, Q);
+    UTS.drawMW(bg, D.mw, lst, SINLAT, COSLAT, toQpx, {
       alphas: LIGHT ? [0.026, 0.030, 0.036, 0.042]
                     : [0.026, 0.030, 0.036, 0.044],
       colors: LIGHT
         ? [[44, 50, 66], [44, 50, 66], [44, 50, 66], [44, 50, 66]]
         : undefined,
     });
+    g.save();
+    // same proportional radius as the print fix; "filter" is absent on a few
+    // old mobile browsers, where compositing unblurred is the current look
+    if ("filter" in g) g.filter = `blur(${(px1 * 0.022).toFixed(2)}px)`;
+    g.drawImage(MW.band, 0, 0);
+    g.restore();
   }
   // 2: fine grain — faint unresolved-star speckles seeded deterministically
   const rnd = mwRng(987654321 ^ Math.round(lst * 100));
