@@ -277,6 +277,13 @@ function draw() {
   // planets
   ctx.fillStyle = "#FFC24B";
   ctx.font = `${11 * Math.sqrt(view.s)}px ui-monospace, monospace`;
+  // Planets sit along the ecliptic, so a conjunction puts several of them
+  // within a few pixels of each other and the labels print as an unreadable
+  // pile — worst from Mars, where Earth is the one label everyone looks for
+  // and it lands in the middle of the heap. Track what has been placed and
+  // give each label the first free slot: either side, then nudged vertically.
+  const labelBoxes = [];
+  const lineH = 12 * Math.sqrt(view.s);
   s.planets.forEach((p, k) => {
     const [alt, az] = altaz(p[0], p[1], s.lst);
     if (alt < 2) return;
@@ -285,14 +292,37 @@ function draw() {
     ctx.beginPath(); ctx.arc(px, py, 2.6 * Math.sqrt(view.s), 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(px, py, 5 * Math.sqrt(view.s), 0, 7);
     ctx.strokeStyle = "#FFC24B"; ctx.lineWidth = 1; ctx.stroke();
-    // label on whichever side keeps it inside the disc
+
     const lbl = D.window.planet_names[k];
     const lw = ctx.measureText(lbl).width, gap = 8;
-    const fits = (x) => Math.hypot(x - hx, py - hy) < hr - 3;
-    if (fits(px + gap + lw)) ctx.fillText(lbl, px + gap, py + 4);
-    else if (fits(px - gap - lw)) {
-      ctx.textAlign = "right"; ctx.fillText(lbl, px - gap, py + 4);
-      ctx.textAlign = "left";
+    const inDisc = (x, y) => Math.hypot(x - hx, y - hy) < hr - 3;
+    const hits = (b) => labelBoxes.some(o =>
+      b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+
+    for (const dy of [0, -lineH, lineH, -2 * lineH, 2 * lineH,
+                      -3 * lineH, 3 * lineH]) {
+      let done = false;
+      for (const side of [1, -1]) {
+        const x = px + side * gap, y = py + 4 + dy;
+        const box = side > 0 ? [x, y - 9, x + lw, y + 3]
+                             : [x - lw, y - 9, x, y + 3];
+        if (!inDisc(box[0], y) || !inDisc(box[2], y) || hits(box)) continue;
+        // a nudged label has drifted off its dot, so tie it back with a hairline
+        if (dy !== 0) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(255,194,75,0.45)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(px + side * 5, py);
+          ctx.lineTo(x - side * 2, y - 3); ctx.stroke();
+          ctx.restore();
+        }
+        ctx.textAlign = side > 0 ? "left" : "right";
+        ctx.fillText(lbl, x, y);
+        ctx.textAlign = "left";
+        labelBoxes.push(box);
+        done = true;
+        break;
+      }
+      if (done) break;
     }
   });
 

@@ -148,7 +148,10 @@
       events.push("Earth never rises or sets here — the Moon keeps one face turned home");
     } else if (world === "mars") {
       events.push("No moon disc — Phobos and Deimos are too small to draw");
-      events.push("A sol is 24h 37m · Earth appears as a bright dot, labelled");
+      // Earth is only labelled when it is actually up — at many local times
+      // it is below the horizon, and the old wording promised a dot that
+      // wasn't there, which is the first thing a careful reader checks
+      events.push("A sol is 24h 37m · Earth is labelled whenever it's above the horizon");
       events.push("Mars' pole points near Deneb, not Polaris");
     }
 
