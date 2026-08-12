@@ -69,6 +69,8 @@ function sampleAt(off) {
 const MW = { canvas: document.createElement("canvas"),
              band: document.createElement("canvas"),   // isophotes, pre-blur
              extent: 1.05, key: null };
+const MW_BOOST = Math.min(6, Math.max(0,
+  parseFloat(new URLSearchParams(location.search).get("mw")) || 1));
 const LIGHT = (D.meta.theme === "minimal");
 document.documentElement.dataset.theme = LIGHT ? "light" : "dark";
 const GROUND = LIGHT ? "#FBFAF7" : "#0B1026";   // the disc's own fill
@@ -122,8 +124,13 @@ function ensureMilky(lst) {
     const bg = MW.band.getContext("2d");
     bg.clearRect(0, 0, Q, Q);
     UTS.drawMW(bg, D.mw, lst, SINLAT, COSLAT, toQpx, {
-      alphas: LIGHT ? [0.026, 0.030, 0.036, 0.042]
-                    : [0.026, 0.030, 0.036, 0.044],
+      // ?mw=<n> scales the glow. The calibration is Bortle 2-3, i.e. "the
+      // last thing you notice", which is honest but fragile: on a phone OLED
+      // the band can read as a smudge, and the Great Rift's evenodd holes can
+      // look like the whole thing is inverted. Undocumented knob so the
+      // brightness can be judged on a real device instead of by argument.
+      alphas: (LIGHT ? [0.026, 0.030, 0.036, 0.042]
+                     : [0.026, 0.030, 0.036, 0.044]).map(a => a * MW_BOOST),
       colors: LIGHT
         ? [[44, 50, 66], [44, 50, 66], [44, 50, 66], [44, 50, 66]]
         : undefined,
