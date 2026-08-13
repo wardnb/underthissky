@@ -129,8 +129,12 @@ function ensureMilky(lst) {
       // the band can read as a smudge, and the Great Rift's evenodd holes can
       // look like the whole thing is inverted. Undocumented knob so the
       // brightness can be judged on a real device instead of by argument.
-      alphas: (LIGHT ? [0.026, 0.030, 0.036, 0.042]
-                     : [0.026, 0.030, 0.036, 0.044]).map(a => a * MW_BOOST),
+      // 2.2x the original Bortle 2-3 calibration, confirmed on a phone OLED.
+      // At the old strength the Great Rift's holes were the most legible
+      // feature, so the dark lane read as the band and the whole thing
+      // looked inverted; at this strength it resolves the right way round.
+      alphas: (LIGHT ? [0.0572, 0.0660, 0.0792, 0.0924]
+                     : [0.0572, 0.0660, 0.0792, 0.0968]).map(a => a * MW_BOOST),
       colors: LIGHT
         ? [[44, 50, 66], [44, 50, 66], [44, 50, 66], [44, 50, 66]]
         : undefined,
